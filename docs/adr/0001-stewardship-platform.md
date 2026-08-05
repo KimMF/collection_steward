@@ -1,0 +1,1 @@
+Collection Steward is a stewardship platform, not merely an inventory system.

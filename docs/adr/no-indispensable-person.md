@@ -1,0 +1,1 @@
+No single individual should be indispensable to the continued stewardship of the software or the collections it serves.
