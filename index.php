@@ -6,6 +6,7 @@ $config = require dirname(__DIR__)
     . '/collection_steward_private/database-config.php';
 
 $asset = null;
+$tags = [];
 $errorMessage = null;
 
 try {
@@ -53,6 +54,22 @@ try {
         $asset = null;
         $errorMessage = 'Asset 1 was not found.';
     }
+if ($asset !== null) {
+    $tagStatement = $connection->prepare(
+        'SELECT t.name
+         FROM tags AS t
+         JOIN asset_tags AS at
+             ON at.tag_id = t.id
+         WHERE at.asset_id = :asset_id
+         ORDER BY t.name'
+    );
+
+    $tagStatement->execute([
+        'asset_id' => 1,
+    ]);
+
+    $tags = $tagStatement->fetchAll(PDO::FETCH_COLUMN);
+}
 } catch (Throwable $error) {
     $errorMessage = 'The inventory record could not be loaded.';
 }
@@ -112,7 +129,10 @@ function escape(?string $value): string
                     </p>
                 <?php endif; ?>
 
-
+                    <p>
+                        <strong>Tags:</strong>
+                        <?= empty($tags) ? 'None' : escape(implode(', ', $tags)) ?>
+                    </p>
                 <?php if (!empty($asset['notes'])): ?>
                     <p>
                         <strong>Notes:</strong>
