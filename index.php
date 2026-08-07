@@ -27,6 +27,7 @@ try {
             a.name,
             a.description,
             a.storage_location,
+			a.size_description,
             a.notes,
             a.availability_status,
             c.name AS category,
@@ -103,6 +104,14 @@ function escape(?string $value): string
                         <?= escape($asset['storage_location']) ?>
                     </p>
                 <?php endif; ?>
+
+                <?php if (!empty($asset['size_description'])): ?>
+                    <p>
+                        <strong>Size:</strong>
+                        <?= escape($asset['size_description']) ?>
+                    </p>
+                <?php endif; ?>
+
 
                 <?php if (!empty($asset['notes'])): ?>
                     <p>
