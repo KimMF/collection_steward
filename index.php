@@ -7,6 +7,7 @@ $config = require dirname(__DIR__)
 
 $asset = null;
 $tags = [];
+$availableTags = [];
 $errorMessage = null;
 
 try {
@@ -69,6 +70,14 @@ if ($asset !== null) {
     ]);
 
     $tags = $tagStatement->fetchAll(PDO::FETCH_COLUMN);
+	$availableTagStatement = $connection->query(
+    'SELECT id, name
+     FROM tags
+     WHERE is_active = 1
+     ORDER BY name'
+);
+
+$availableTags = $availableTagStatement->fetchAll();
 }
 } catch (Throwable $error) {
     $errorMessage = 'The inventory record could not be loaded.';
@@ -79,7 +88,24 @@ function escape(?string $value): string
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
 }
 
+
 ?>
+<form method="post">
+<?php if (!empty($availableTags)): ?>
+    <p>
+        <strong>Assign tag:</strong>
+        <select name="tag_id">
+            <option value="">Choose a tag</option>
+            <?php foreach ($availableTags as $tag): ?>
+                <option value="<?= (int) $tag['id'] ?>">
+                    <?= escape($tag['name']) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+		<button type="submit">Assign tag</button>
+    </p>
+<?php endif; ?>
+</form>
 <!DOCTYPE html>
 <html lang="en">
 <head>
