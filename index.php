@@ -1,7 +1,13 @@
 <?php
 
 declare(strict_types=1);
+session_set_cookie_params([
+    'httponly' => true,
+    'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    'samesite' => 'Lax',
+]);
 
+session_start();
 $config = require dirname(__DIR__)
     . '/collection_steward_private/database-config.php';
 
@@ -9,6 +15,8 @@ $asset = null;
 $tags = [];
 $availableTags = [];
 $errorMessage = null;
+$currentUser = null;
+$loginError = null;
 
 try {
     $connection = new PDO(
@@ -112,6 +120,35 @@ function escape(?string $value): string
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collection Steward</title>
+	<?php if ($currentUser === null): ?>
+    <form method="post">
+        <p>
+            <label for="username">Username:</label>
+            <input
+                type="text"
+                id="username"
+                name="username"
+                autocomplete="username"
+                required
+            >
+        </p>
+
+        <p>
+            <label for="password">Password:</label>
+            <input
+                type="password"
+                id="password"
+                name="password"
+                autocomplete="current-password"
+                required
+            >
+        </p>
+
+        <button type="submit" name="action" value="login">
+            Sign in
+        </button>
+    </form>
+<?php endif; ?>
 </head>
 <body>
     <main>
