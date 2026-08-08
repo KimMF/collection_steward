@@ -37,11 +37,22 @@ if (
 }
 $config = require dirname(__DIR__)
     . '/collection_steward_private/database-config.php';
+//-------------------------------------------------------------
+$requestedAssetId = filter_input(
+    INPUT_GET,
+    'asset_id',
+    FILTER_VALIDATE_INT
+);
 
+$assetId = is_int($requestedAssetId) && $requestedAssetId > 0
+    ? $requestedAssetId
+    : 1;
+//-------------------------------------------------------------
 $asset = null;
 $tags = [];
 $assignedTags = [];
 $availableTags = [];
+$assetChoices = [];
 $strikeActions = [];
 
 // pilot MAY BE TEMPORARY
@@ -219,7 +230,7 @@ if (
         );
 
         $addStrikeActionStatement->execute([
-            'asset_id' => 1,
+            'asset_id' => $assetId,
             'action_needed' => $actionNeeded,
             'staging_location' => $stagingLocation !== ''
                 ? $stagingLocation
@@ -229,7 +240,7 @@ if (
         ]);
     }
 
-    header('Location: /');
+    header('Location: /?asset_id=' . $assetId);
     exit;
 }
 //...........................................................................
@@ -260,12 +271,12 @@ if (
             'status' => 'completed',
             'updated_by_user_id' => (int) $currentUser['id'],
             'strike_action_id' => $strikeActionId,
-            'asset_id' => 1,
+            'asset_id' => $assetId,
             'pending_status' => 'pending',
         ]);
     }
 
-    header('Location: /');
+    header('Location: /?asset_id=' . $assetId);
     exit;
 }
 //...........................................................................
@@ -288,12 +299,12 @@ if (
             );
 
             $removeTagStatement->execute([
-                'asset_id' => 1,
+                'asset_id' => $assetId,
                 'tag_id' => $tagId,
             ]);
         }
 
-        header('Location: /');
+        header('Location: /?asset_id=' . $assetId);
         exit;
     }	
     if (
@@ -330,7 +341,7 @@ if (
                 );
 
                 $existingTagStatement->execute([
-                    'asset_id' => 1,
+                    'asset_id' => $assetId,
                     'tag_id' => $tagId,
                 ]);
 
@@ -341,14 +352,14 @@ if (
                     );
 
                     $assignTagStatement->execute([
-                        'asset_id' => 1,
+                        'asset_id' => $assetId,
                         'tag_id' => $tagId,
                     ]);
                }
             }
         }
 
-        header('Location: /');
+        header('Location: /?asset_id=' . $assetId);
         exit;
     }	
 // end assign, remove tags or set strike action 
@@ -357,6 +368,13 @@ if (
 
 //......................................................................................................
 // retrieve asset record, tags, and pending strike work
+$assetChoiceStatement = $connection->query(
+    'SELECT id, name
+     FROM assets
+     ORDER BY name, id'
+);
+
+$assetChoices = $assetChoiceStatement->fetchAll();
     $statement = $connection->prepare(
         'SELECT
             a.id,
@@ -380,14 +398,14 @@ if (
     );
 
     $statement->execute([
-        'asset_id' => 1,
+        'asset_id' => $assetId,
     ]);
 
     $asset = $statement->fetch();
 
     if ($asset === false) {
         $asset = null;
-        $errorMessage = 'Asset 1 was not found.';
+        $errorMessage = 'Asset ' . $assetId . ' was not found.';
     }
 if ($asset !== null) {
     $tagStatement = $connection->prepare(
@@ -400,7 +418,7 @@ if ($asset !== null) {
     );
 
     $tagStatement->execute([
-        'asset_id' => 1,
+        'asset_id' => $assetId,
     ]);
 
     $assignedTags = $tagStatement->fetchAll();
@@ -424,7 +442,7 @@ $strikeActionStatement = $connection->prepare(
 );
 
 $strikeActionStatement->execute([
-    'asset_id' => 1,
+    'asset_id' => $assetId,
     'status' => 'pending',
 ]);
 
@@ -526,6 +544,28 @@ function escape(?string $value): string
 <body>
     <main>
         <h1>Collection Steward</h1>
+		
+<?php if (!empty($assetChoices)): ?>
+    <form method="get">
+        <p>
+            <label for="asset_id"><strong>View asset:</strong></label>
+
+            <select id="asset_id" name="asset_id">
+                <?php foreach ($assetChoices as $assetChoice): ?>
+                    <option
+                        value="<?= (int) $assetChoice['id'] ?>"
+                        <?= (int) $assetChoice['id'] === $assetId ? 'selected' : '' ?>
+                    >
+                        <?= escape($assetChoice['name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+
+            <button type="submit">View</button>
+        </p>
+    </form>
+<?php endif; ?>
+		
 		<?php if ($currentUser !== null): ?>
             <p>
         Signed in as
