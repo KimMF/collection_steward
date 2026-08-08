@@ -177,7 +177,17 @@ try {
         http_response_code(403);
         exit('You must be signed in to add strike work.');
     }
-	// Add temporary strike work for an authenticated steward.
+// Add temporary strike work for an authenticated steward.
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && ($_POST['action'] ?? '') === 'complete_strike_action'
+    && $currentUser === null
+) {
+    http_response_code(403);
+    exit('You must be signed in to complete strike work.');
+}
+//............................................................
+
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
     && ($_POST['action'] ?? '') === 'add_strike_action'
@@ -222,6 +232,43 @@ if (
     header('Location: /');
     exit;
 }
+//...........................................................................
+// Complete existing strike work without deleting its history.
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && ($_POST['action'] ?? '') === 'complete_strike_action'
+    && $currentUser !== null
+) {
+    $strikeActionId = filter_input(
+        INPUT_POST,
+        'strike_action_id',
+        FILTER_VALIDATE_INT
+    );
+
+    if (is_int($strikeActionId) && $strikeActionId > 0) {
+        $completeStrikeActionStatement = $connection->prepare(
+            'UPDATE asset_strike_actions
+             SET status = :status,
+                 completed_at = CURRENT_TIMESTAMP,
+                 updated_by_user_id = :updated_by_user_id
+             WHERE id = :strike_action_id
+               AND asset_id = :asset_id
+               AND status = :pending_status'
+        );
+
+        $completeStrikeActionStatement->execute([
+            'status' => 'completed',
+            'updated_by_user_id' => (int) $currentUser['id'],
+            'strike_action_id' => $strikeActionId,
+            'asset_id' => 1,
+            'pending_status' => 'pending',
+        ]);
+    }
+
+    header('Location: /');
+    exit;
+}
+//...........................................................................
     if (
         $_SERVER['REQUEST_METHOD'] === 'POST'
         && ($_POST['action'] ?? '') === 'remove_tag'
@@ -548,6 +595,26 @@ function escape(?string $value): string
                 <?php endforeach; ?>
                 <?php endif; ?>
              </p>
+<!--...............................................-->
+<?php if ($currentUser !== null && !empty($strikeActions)): ?>
+    <?php foreach ($strikeActions as $strikeAction): ?>
+        <form method="post">
+            <input
+                type="hidden"
+                name="strike_action_id"
+                value="<?= (int) $strikeAction['id'] ?>"
+            >
+            <button
+                type="submit"
+                name="action"
+                value="complete_strike_action"
+            >
+                Mark <?= escape($strikeAction['action_needed']) ?> completed
+            </button>
+        </form>
+    <?php endforeach; ?>
+<?php endif; ?>
+<!--...............................................-->
 
 <!-- authenticated strike-work entry form -->
 <?php if ($currentUser !== null): ?>
