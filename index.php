@@ -120,6 +120,14 @@ try {
             }
         }
     }
+    if (
+        $_SERVER['REQUEST_METHOD'] === 'POST'
+        && ($_POST['action'] ?? '') === 'assign_tag'
+        && $currentUser === null
+    ) {
+        http_response_code(403);
+        exit('You must be signed in to assign tags.');
+    }	
     $statement = $connection->prepare(
         'SELECT
             a.id,
@@ -188,6 +196,7 @@ function escape(?string $value): string
 
 ?>
 <form method="post">
+<input type="hidden" name="action" value="assign_tag">
 <?php if (!empty($availableTags)): ?>
     <p>
         <strong>Assign tag:</strong>
