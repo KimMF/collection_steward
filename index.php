@@ -39,6 +39,7 @@ $asset = null;
 $tags = [];
 $assignedTags = [];
 $availableTags = [];
+$strikeActions = [];
 $errorMessage = null;
 $currentUser = null;
 $loginError = null;
@@ -275,6 +276,20 @@ if ($asset !== null) {
 );
 
 $availableTags = $availableTagStatement->fetchAll();
+$strikeActionStatement = $connection->prepare(
+    'SELECT id, action_needed, staging_location, status
+     FROM asset_strike_actions
+     WHERE asset_id = :asset_id
+       AND status = :status
+     ORDER BY created_at, id'
+);
+
+$strikeActionStatement->execute([
+    'asset_id' => 1,
+    'status' => 'pending',
+]);
+
+$strikeActions = $strikeActionStatement->fetchAll();
 }
 } catch (Throwable $error) {
     $errorMessage = 'The inventory record could not be loaded.';
@@ -418,6 +433,20 @@ function escape(?string $value): string
                         <strong>Tags:</strong>
                         <?= empty($tags) ? 'None' : escape(implode(', ', $tags)) ?>
                     </p>
+                <p>
+                        <strong>Strike work:</strong>
+                <?php if (empty($strikeActions)): ?>
+                          None
+                <?php else: ?>
+                <?php foreach ($strikeActions as $strikeAction): ?>
+                      <br>
+                      <?= escape($strikeAction['action_needed']) ?>
+                <?php if (!empty($strikeAction['staging_location'])): ?>
+                          — Staging: <?= escape($strikeAction['staging_location']) ?>
+                <?php endif; ?>
+                <?php endforeach; ?>
+                <?php endif; ?>
+             </p>
                 <?php if (!empty($asset['notes'])): ?>
                     <p>
                         <strong>Notes:</strong>
