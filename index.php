@@ -8,6 +8,30 @@ session_set_cookie_params([
 ]);
 
 session_start();
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && ($_POST['action'] ?? '') === 'logout'
+) {
+    $_SESSION = [];
+
+    if (ini_get('session.use_cookies')) {
+        $cookie = session_get_cookie_params();
+
+        setcookie(session_name(), '', [
+            'expires' => time() - 3600,
+            'path' => $cookie['path'],
+            'domain' => $cookie['domain'],
+            'secure' => $cookie['secure'],
+            'httponly' => $cookie['httponly'],
+            'samesite' => $cookie['samesite'] ?? 'Lax',
+        ]);
+    }
+
+    session_destroy();
+
+    header('Location: /');
+    exit;
+}
 $config = require dirname(__DIR__)
     . '/collection_steward_private/database-config.php';
 
@@ -224,7 +248,11 @@ function escape(?string $value): string
         <strong><?= escape($currentUser['display_name']) ?></strong>
             </p>
         <?php endif; ?>
-		
+<form method="post">
+    <button type="submit" name="action" value="logout">
+        Sign out
+    </button>
+</form>		
 
         <?php if ($errorMessage !== null): ?>
             <p><?= escape($errorMessage) ?></p>
