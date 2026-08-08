@@ -37,6 +37,7 @@ $config = require dirname(__DIR__)
 
 $asset = null;
 $tags = [];
+$assignedTags = [];
 $availableTags = [];
 $errorMessage = null;
 $currentUser = null;
@@ -127,6 +128,41 @@ try {
     ) {
         http_response_code(403);
         exit('You must be signed in to assign tags.');
+		}
+		    if (
+        $_SERVER['REQUEST_METHOD'] === 'POST'
+        && ($_POST['action'] ?? '') === 'remove_tag'
+        && $currentUser === null
+    ) {
+        http_response_code(403);
+        exit('You must be signed in to remove tags.');
+    }
+    if (
+        $_SERVER['REQUEST_METHOD'] === 'POST'
+        && ($_POST['action'] ?? '') === 'remove_tag'
+        && $currentUser !== null
+    ) {
+        $tagId = filter_input(
+            INPUT_POST,
+            'tag_id',
+            FILTER_VALIDATE_INT
+        );
+
+        if (is_int($tagId) && $tagId > 0) {
+            $removeTagStatement = $connection->prepare(
+                'DELETE FROM asset_tags
+                 WHERE asset_id = :asset_id
+                   AND tag_id = :tag_id'
+            );
+
+            $removeTagStatement->execute([
+                'asset_id' => 1,
+                'tag_id' => $tagId,
+            ]);
+        }
+
+        header('Location: /');
+        exit;
     }	
     if (
         $_SERVER['REQUEST_METHOD'] === 'POST'
@@ -217,7 +253,7 @@ try {
     }
 if ($asset !== null) {
     $tagStatement = $connection->prepare(
-        'SELECT t.name
+        'SELECT t.id, t.name
          FROM tags AS t
          JOIN asset_tags AS at
              ON at.tag_id = t.id
@@ -229,7 +265,8 @@ if ($asset !== null) {
         'asset_id' => 1,
     ]);
 
-    $tags = $tagStatement->fetchAll(PDO::FETCH_COLUMN);
+    $assignedTags = $tagStatement->fetchAll();
+    $tags = array_column($assignedTags, 'name');
 	$availableTagStatement = $connection->query(
     'SELECT id, name
      FROM tags
@@ -270,6 +307,24 @@ function escape(?string $value): string
 <?php endif; ?>
 </form>
 <?php endif; ?>
+<?php if ($currentUser !== null && !empty($assignedTags)): ?>
+<form method="post">
+    <input type="hidden" name="action" value="remove_tag">
+    <p>
+        <strong>Remove tag:</strong>
+        <select name="tag_id">
+            <option value="">Choose a tag</option>
+            <?php foreach ($assignedTags as $tag): ?>
+                <option value="<?= (int) $tag['id'] ?>">
+                    <?= escape($tag['name']) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <button type="submit">Remove tag</button>
+    </p>
+</form>
+<?php endif; ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
