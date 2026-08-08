@@ -250,6 +250,8 @@ function escape(?string $value): string
 
 
 ?>
+
+<?php if ($currentUser !== null): ?>
 <form method="post">
 <input type="hidden" name="action" value="assign_tag">
 <?php if (!empty($availableTags)): ?>
@@ -267,6 +269,7 @@ function escape(?string $value): string
     </p>
 <?php endif; ?>
 </form>
+<?php endif; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
