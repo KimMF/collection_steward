@@ -128,6 +128,61 @@ try {
         http_response_code(403);
         exit('You must be signed in to assign tags.');
     }	
+    if (
+        $_SERVER['REQUEST_METHOD'] === 'POST'
+        && ($_POST['action'] ?? '') === 'assign_tag'
+        && $currentUser !== null
+    ) {
+        $tagId = filter_input(
+            INPUT_POST,
+            'tag_id',
+            FILTER_VALIDATE_INT
+        );
+
+        if (is_int($tagId) && $tagId > 0) {
+            $validTagStatement = $connection->prepare(
+                'SELECT id
+                 FROM tags
+                 WHERE id = :tag_id
+                   AND is_active = 1
+                 LIMIT 1'
+            );
+
+            $validTagStatement->execute([
+                'tag_id' => $tagId,
+            ]);
+
+            if ($validTagStatement->fetch() !== false) {
+                $existingTagStatement = $connection->prepare(
+                    'SELECT 1
+                     FROM asset_tags
+                     WHERE asset_id = :asset_id
+                       AND tag_id = :tag_id
+                     LIMIT 1'
+                );
+
+                $existingTagStatement->execute([
+                    'asset_id' => 1,
+                    'tag_id' => $tagId,
+                ]);
+
+                if ($existingTagStatement->fetch() === false) {
+                    $assignTagStatement = $connection->prepare(
+                        'INSERT INTO asset_tags (asset_id, tag_id)
+                         VALUES (:asset_id, :tag_id)'
+                    );
+
+                    $assignTagStatement->execute([
+                        'asset_id' => 1,
+                        'tag_id' => $tagId,
+                    ]);
+                }
+            }
+        }
+
+        header('Location: /');
+        exit;
+    }	
     $statement = $connection->prepare(
         'SELECT
             a.id,
