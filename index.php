@@ -218,6 +218,13 @@ function escape(?string $value): string
 <body>
     <main>
         <h1>Collection Steward</h1>
+		<?php if ($currentUser !== null): ?>
+            <p>
+        Signed in as
+        <strong><?= escape($currentUser['display_name']) ?></strong>
+            </p>
+        <?php endif; ?>
+		
 
         <?php if ($errorMessage !== null): ?>
             <p><?= escape($errorMessage) ?></p>
