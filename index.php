@@ -30,7 +30,72 @@ try {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]
     );
+    if (isset($_SESSION['user_id'])) {
+        $sessionUserStatement = $connection->prepare(
+            'SELECT id, username, display_name
+             FROM users
+             WHERE id = :user_id
+               AND is_active = 1
+             LIMIT 1'
+        );
 
+        $sessionUserStatement->execute([
+            'user_id' => (int) $_SESSION['user_id'],
+        ]);
+
+        $sessionUser = $sessionUserStatement->fetch();
+
+        if ($sessionUser !== false) {
+            $currentUser = $sessionUser;
+        } else {
+            unset($_SESSION['user_id']);
+        }
+    }
+
+    if (
+        $currentUser === null
+        && $_SERVER['REQUEST_METHOD'] === 'POST'
+        && ($_POST['action'] ?? '') === 'login'
+    ) {
+        $username = is_string($_POST['username'] ?? null)
+            ? trim($_POST['username'])
+            : '';
+
+        $password = is_string($_POST['password'] ?? null)
+            ? $_POST['password']
+            : '';
+
+        if ($username === '' || $password === '') {
+            $loginError = 'Enter both username and password.';
+        } else {
+            $loginStatement = $connection->prepare(
+                'SELECT id, username, display_name, password_hash
+                 FROM users
+                 WHERE username = :username
+                   AND is_active = 1
+                 LIMIT 1'
+            );
+
+            $loginStatement->execute([
+                'username' => $username,
+            ]);
+
+            $user = $loginStatement->fetch();
+
+            if (
+                $user !== false
+                && password_verify($password, $user['password_hash'])
+            ) {
+                session_regenerate_id(true);
+                $_SESSION['user_id'] = (int) $user['id'];
+
+                unset($user['password_hash']);
+                $currentUser = $user;
+            } else {
+                $loginError = 'Invalid username or password.';
+            }
+        }
+    }
     $statement = $connection->prepare(
         'SELECT
             a.id,
