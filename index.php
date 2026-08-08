@@ -1,5 +1,8 @@
 <?php
 
+//......................................................................................................
+//  declare working space and set up the environment 
+
 declare(strict_types=1);
 session_set_cookie_params([
     'httponly' => true,
@@ -40,10 +43,25 @@ $tags = [];
 $assignedTags = [];
 $availableTags = [];
 $strikeActions = [];
+
+// pilot MAY BE TEMPORARY
+// Pilot strike action choices
+$strikeActionChoices = [
+    'Launder',
+    'Repair',
+    'Return to owner/lender',
+    'Return to storage',
+];
+// end PILOT may be temporary
+
+
 $errorMessage = null;
 $currentUser = null;
 $loginError = null;
+//......................................................................................................
 
+//......................................................................................................
+// establish database connection
 try {
     $connection = new PDO(
         'mysql:host=' . $config['host']
@@ -77,12 +95,19 @@ try {
             unset($_SESSION['user_id']);
         }
     }
+// database connection established
+//......................................................................................................
+
+//......................................................................................................
+// login logic
 
     if (
         $currentUser === null
         && $_SERVER['REQUEST_METHOD'] === 'POST'
         && ($_POST['action'] ?? '') === 'login'
-    ) {
+    ) 
+	
+	{
         $username = is_string($_POST['username'] ?? null)
             ? trim($_POST['username'])
             : '';
@@ -122,6 +147,12 @@ try {
             }
         }
     }
+//  end login logic
+//......................................................................................................
+
+	
+//......................................................................................................
+// assign, remove tags or set strike action 
     if (
         $_SERVER['REQUEST_METHOD'] === 'POST'
         && ($_POST['action'] ?? '') === 'assign_tag'
@@ -138,6 +169,59 @@ try {
         http_response_code(403);
         exit('You must be signed in to remove tags.');
     }
+    if (
+        $_SERVER['REQUEST_METHOD'] === 'POST'
+        && ($_POST['action'] ?? '') === 'add_strike_action'
+        && $currentUser === null
+    ) {
+        http_response_code(403);
+        exit('You must be signed in to add strike work.');
+    }
+	// Add temporary strike work for an authenticated steward.
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && ($_POST['action'] ?? '') === 'add_strike_action'
+    && $currentUser !== null
+) {
+    $actionNeeded = is_string($_POST['action_needed'] ?? null)
+        ? trim($_POST['action_needed'])
+        : '';
+
+    $stagingLocation = is_string($_POST['staging_location'] ?? null)
+        ? trim($_POST['staging_location'])
+        : '';
+
+    if (in_array($actionNeeded, $strikeActionChoices, true)) {
+        $addStrikeActionStatement = $connection->prepare(
+            'INSERT INTO asset_strike_actions (
+                asset_id,
+                action_needed,
+                staging_location,
+                created_by_user_id,
+                updated_by_user_id
+             ) VALUES (
+                :asset_id,
+                :action_needed,
+                :staging_location,
+                :created_by_user_id,
+                :updated_by_user_id
+             )'
+        );
+
+        $addStrikeActionStatement->execute([
+            'asset_id' => 1,
+            'action_needed' => $actionNeeded,
+            'staging_location' => $stagingLocation !== ''
+                ? $stagingLocation
+                : null,
+            'created_by_user_id' => (int) $currentUser['id'],
+            'updated_by_user_id' => (int) $currentUser['id'],
+        ]);
+    }
+
+    header('Location: /');
+    exit;
+}
     if (
         $_SERVER['REQUEST_METHOD'] === 'POST'
         && ($_POST['action'] ?? '') === 'remove_tag'
@@ -213,13 +297,19 @@ try {
                         'asset_id' => 1,
                         'tag_id' => $tagId,
                     ]);
-                }
+               }
             }
         }
 
         header('Location: /');
         exit;
     }	
+// end assign, remove tags or set strike action 
+//......................................................................................................
+
+
+//......................................................................................................
+// retrieve asset record, tags, and pending strike work
     $statement = $connection->prepare(
         'SELECT
             a.id,
@@ -276,6 +366,8 @@ if ($asset !== null) {
 );
 
 $availableTags = $availableTagStatement->fetchAll();
+
+// setstrike activity may need to become separate module.  only here for pilot
 $strikeActionStatement = $connection->prepare(
     'SELECT id, action_needed, staging_location, status
      FROM asset_strike_actions
@@ -300,13 +392,18 @@ function escape(?string $value): string
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
 }
 
-
+// end of possible temporary code for pilot  
+//......................................................................................................
 ?>
 
+
+
 <?php if ($currentUser !== null): ?>
+
 <form method="post">
 <input type="hidden" name="action" value="assign_tag">
 <?php if (!empty($availableTags)): ?>
+
     <p>
         <strong>Assign tag:</strong>
         <select name="tag_id">
@@ -341,12 +438,15 @@ function escape(?string $value): string
 <?php endif; ?>
 
 <!DOCTYPE html>
+<!--html comment  this is a test to make sure that I understand syntax to comment-->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collection Steward</title>
 	<?php if ($currentUser === null): ?>
+	
+<!-- html comment .............................. -->
     <form method="post">
         <p>
             <label for="username">Username:</label>
@@ -391,6 +491,7 @@ function escape(?string $value): string
     </button>
 </form>		
 
+<!-- ................................... begin display asset ............................-->
         <?php if ($errorMessage !== null): ?>
             <p><?= escape($errorMessage) ?></p>
 
@@ -447,6 +548,40 @@ function escape(?string $value): string
                 <?php endforeach; ?>
                 <?php endif; ?>
              </p>
+
+<!-- authenticated strike-work entry form -->
+<?php if ($currentUser !== null): ?>
+<form method="post">
+    <input type="hidden" name="action" value="add_strike_action">
+
+    <p>
+        <label for="action_needed"><strong>Strike action:</strong></label>
+        <select id="action_needed" name="action_needed" required>
+            <option value="">Choose an action</option>
+            <?php foreach ($strikeActionChoices as $strikeActionChoice): ?>
+                <option value="<?= escape($strikeActionChoice) ?>">
+                    <?= escape($strikeActionChoice) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </p>
+
+    <p>
+        <label for="staging_location">
+            <strong>Temporary staging location:</strong>
+        </label>
+        <input
+            type="text"
+            id="staging_location"
+            name="staging_location"
+            maxlength="255"
+        >
+    </p>
+
+    <button type="submit">Record strike work</button>
+</form>
+<?php endif; ?>
+<!-- end authenticated strike-work entry form -->			 
                 <?php if (!empty($asset['notes'])): ?>
                     <p>
                         <strong>Notes:</strong>
