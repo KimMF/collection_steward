@@ -1,4 +1,4 @@
-# Collection Steward Manual Deployment Procedure
+#  Collection Steward Manual Deployment Procedure
 
 **Document version:** 0.2  
 **Last updated:** August 6, 2026  
