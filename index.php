@@ -591,13 +591,58 @@ function escape(?string $value): string
                     <?= escape($asset['category']) ?>
                 </p>
 
-                <?php if (!empty($asset['file_path'])): ?>
-                    <img
-                        src="<?= escape($asset['file_path']) ?>"
-                        alt="<?= escape($asset['caption'] ?: $asset['name']) ?>"
-                        style="max-width: 500px; height: auto;"
-                    >
-                <?php endif; ?>
+        <?php if (!empty($asset['file_path'])): ?>
+          <div>
+              <img
+                  id="asset-photo"
+                  src="<?= escape($asset['file_path']) ?>"
+                  alt="<?= escape($asset['caption'] ?: $asset['name']) ?>"
+                  style="max-width: 150px; max-height: 150px; width: auto; height: auto;"
+              >
+
+              <button
+                  type="button"
+                  id="photo-size-toggle"
+                  aria-controls="asset-photo"
+                  aria-expanded="false"
+                  title="Show larger photo"
+              >
+                  +
+              </button>
+          </div>
+
+          <script>
+              const assetPhoto =
+                  document.getElementById('asset-photo');
+
+              const photoSizeToggle =
+                  document.getElementById('photo-size-toggle');
+
+              photoSizeToggle.addEventListener('click', function () {
+                  const isExpanded =
+                     photoSizeToggle.getAttribute('aria-expanded') === 'true';
+
+                  assetPhoto.style.maxWidth =
+                      isExpanded ? '150px' : '500px';
+
+                  assetPhoto.style.maxHeight =
+                      isExpanded ? '150px' : 'none';
+
+                  photoSizeToggle.textContent =
+                      isExpanded ? '+' : '−';
+
+                  photoSizeToggle.setAttribute(
+                      'aria-expanded',
+                      isExpanded ? 'false' : 'true'
+                  );
+
+                  photoSizeToggle.title =
+                      isExpanded
+                          ? 'Show larger photo'
+                          : 'Show thumbnail';
+              });
+          </script>
+      <?php endif; ?>
 
                 <?php if (!empty($asset['description'])): ?>
                     <p><?= escape($asset['description']) ?></p>
