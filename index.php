@@ -54,6 +54,7 @@ $assignedTags = [];
 $availableTags = [];
 $assetChoices = [];
 $strikeActions = [];
+$activeCheckout = null;
 
 // pilot MAY BE TEMPORARY
 // Pilot strike action choices
@@ -411,6 +412,38 @@ $assetChoices = $assetChoiceStatement->fetchAll();
         $errorMessage = 'Asset ' . $assetId . ' was not found.';
     }
 if ($asset !== null) {
+    if (
+        $currentUser !== null
+        && $asset['availability_status'] === 'checked_out'
+    ) {
+        $activeCheckoutStatement = $connection->prepare(
+            "SELECT
+                pr.name AS production_name,
+                pc.character_name,
+                pe.display_name AS actor_name
+             FROM asset_checkouts AS ac
+             JOIN production_cast AS pc
+                ON pc.id = ac.production_cast_id
+             JOIN productions AS pr
+                ON pr.id = pc.production_id
+             JOIN people AS pe
+                ON pe.id = pc.person_id
+             WHERE ac.asset_id = :asset_id
+               AND ac.status = 'active'
+             ORDER BY ac.checked_out_at DESC, ac.id DESC
+             LIMIT 1"
+        );
+
+        $activeCheckoutStatement->execute([
+            'asset_id' => $assetId,
+        ]);
+
+        $activeCheckoutRecord = $activeCheckoutStatement->fetch();
+        $activeCheckout = $activeCheckoutRecord !== false
+            ? $activeCheckoutRecord
+            : null;
+    }
+
     $tagStatement = $connection->prepare(
         'SELECT t.id, t.name
          FROM tags AS t
@@ -602,6 +635,23 @@ function escape(?string $value): string
                     <strong>Asset ID:</strong>
                     <?= (int) $asset['id'] ?>
                 </p>
+
+                <div class="notice">
+                    <strong>Status:</strong>
+                    <?= escape(ucfirst(str_replace(
+                        '_',
+                        ' ',
+                        (string) $asset['availability_status']
+                    ))) ?>
+
+                    <?php if ($currentUser !== null && $activeCheckout !== null): ?>
+                        <br>
+                        <strong>Assigned to:</strong>
+                        <?= escape($activeCheckout['production_name']) ?>
+                        — <?= escape($activeCheckout['character_name']) ?>
+                        (<?= escape($activeCheckout['actor_name']) ?>)
+                    <?php endif; ?>
+                </div>
 
                 <p>
                     <strong>Category:</strong>
