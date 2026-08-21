@@ -381,14 +381,17 @@ $assetChoices = $assetChoiceStatement->fetchAll();
             a.name,
             a.description,
             a.storage_location,
+			a.color,
 			a.size_description,
+            a.received_date,
+            a.acquisition_type,
             a.notes,
             a.availability_status,
             c.name AS category,
             p.file_path,
             p.caption
         FROM assets AS a
-        JOIN asset_categories AS c
+        LEFT JOIN asset_categories AS c
             ON c.id = a.category_id
         LEFT JOIN asset_photos AS p
             ON p.asset_id = a.id
@@ -509,6 +512,7 @@ function escape(?string $value): string
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collection Steward</title>
+	<link rel="stylesheet" href="/app.css">
 	<?php if ($currentUser === null): ?>
 	
 <!-- html comment .............................. -->
@@ -544,6 +548,14 @@ function escape(?string $value): string
 <body>
     <main>
         <h1>Collection Steward</h1>
+
+<?php if ($currentUser !== null): ?>
+    <nav aria-label="Collection Steward">
+        <a href="/" aria-current="page">View assets</a>
+        <a href="/intake.php">Add incoming donation</a>
+        <a href="/checkout.php">Production checkout</a>
+    </nav>
+<?php endif; ?>
 		
 <?php if (!empty($assetChoices)): ?>
     <form method="get">
@@ -587,8 +599,13 @@ function escape(?string $value): string
                 <h2><?= escape($asset['name']) ?></h2>
 
                 <p>
+                    <strong>Asset ID:</strong>
+                    <?= (int) $asset['id'] ?>
+                </p>
+
+                <p>
                     <strong>Category:</strong>
-                    <?= escape($asset['category']) ?>
+                    <?= escape($asset['category'] ?? 'Unassigned') ?>
                 </p>
 
         <?php if (!empty($asset['file_path'])): ?>
@@ -659,6 +676,21 @@ function escape(?string $value): string
                     <p>
                         <strong>Size:</strong>
                         <?= escape($asset['size_description']) ?>
+                    </p>
+                <?php endif; ?>
+
+                <?php if (!empty($asset['color'])): ?>
+                    <p>
+                        <strong>Color:</strong>
+                        <?= escape($asset['color']) ?>
+                    </p>
+                <?php endif; ?>
+
+                <?php if (!empty($asset['received_date'])): ?>
+                    <p>
+                        <strong>Received:</strong>
+                        <?= escape($asset['received_date']) ?>
+                        <?= $asset['acquisition_type'] === 'donation' ? ' as a donation' : '' ?>
                     </p>
                 <?php endif; ?>
 
