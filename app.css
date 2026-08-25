@@ -10,6 +10,10 @@ body {
     margin: 0;
 }
 
+[hidden] {
+    display: none !important;
+}
+
 main {
     background: #ffffff;
     margin: 0 auto;
@@ -64,6 +68,64 @@ fieldset.field {
 
 fieldset.field legend {
     font-weight: 700;
+}
+
+.controlled-attributes {
+    border: 1px solid #aaa;
+    border-radius: 0.45rem;
+    margin: 0 0 1.5rem;
+    padding: 1rem;
+}
+
+.controlled-attributes legend {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.controlled-field {
+    border-top: 1px solid #d5d1c8;
+    padding-top: 1rem;
+}
+
+.controlled-field:first-of-type {
+    border-top: 0;
+}
+
+.other-option {
+    background: #f4f1e9;
+    border-left: 0.3rem solid #8a7040;
+    margin-top: 0.65rem;
+    padding: 0.75rem;
+}
+
+.other-option label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+
+.generated-name-preview {
+    background: #e7f2ed;
+    border-left: 0.35rem solid #2f725f;
+    margin-top: 1rem;
+    padding: 0.8rem 1rem;
+}
+
+.generated-name-preview span {
+    display: block;
+    font-size: 1.1rem;
+    margin-top: 0.25rem;
+}
+
+.pending-suggestions {
+    background: #fff4d8;
+    border-left: 0.35rem solid #a37716;
+    margin: 1rem 0;
+    padding: 0.8rem 1rem;
+}
+
+.pending-suggestions ul {
+    margin-bottom: 0;
 }
 
 .choices label {
@@ -519,9 +581,49 @@ section,
     flex: 1;
 }
 
+.suggestion-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.suggestion-card {
+    border: 1px solid #c7c4bc;
+    border-radius: 0.45rem;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 9rem minmax(0, 1fr);
+    padding: 1rem;
+}
+
+.suggestion-thumbnail {
+    height: 9rem;
+    object-fit: contain;
+    width: 9rem;
+}
+
+.suggestion-details h2 {
+    margin-top: 0;
+}
+
+.suggestion-action {
+    border-top: 1px solid #d5d1c8;
+    margin-top: 1rem;
+    padding-top: 1rem;
+}
+
 @media (max-width: 35rem) {
     .checkout-card {
         display: block;
+    }
+
+    .suggestion-card {
+        grid-template-columns: 1fr;
+    }
+
+    .suggestion-thumbnail {
+        height: auto;
+        max-height: 14rem;
+        width: 100%;
     }
 
     .checkout-thumbnail {

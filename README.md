@@ -10,3 +10,7 @@ Release notes are preserved in [`docs/releases`](docs/releases).
 
 The current post-baseline pilot changes and deployment checks are described in
 [`docs/sonya-pilot-improvements.md`](docs/sonya-pilot-improvements.md).
+
+The database-controlled intake fields and vocabulary-review workflow are
+described in
+[`docs/controlled-intake-vocabulary.md`](docs/controlled-intake-vocabulary.md).

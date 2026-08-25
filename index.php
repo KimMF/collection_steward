@@ -40,6 +40,7 @@ $activeCheckout = null;
 $currentUser = null;
 $canManageAssets = false;
 $canManageUsers = false;
+$canManageVocabulary = false;
 $canUseIntake = false;
 $canUseCheckout = false;
 $loginError = null;
@@ -108,6 +109,10 @@ try {
             $currentUser,
             'manage_users'
         );
+        $canManageVocabulary = collectionStewardUserCan(
+            $currentUser,
+            'manage_vocabulary'
+        );
         $canUseIntake = collectionStewardUserCan($currentUser, 'intake');
         $canUseCheckout = collectionStewardUserCan($currentUser, 'checkout');
         $csrfToken = collectionStewardCsrfToken();
@@ -119,10 +124,12 @@ try {
             a.name,
             a.description,
             a.storage_location,
-            a.color,
+            COALESCE(co.name, a.color) AS color,
             a.size_description,
             a.availability_status,
-            COALESCE(c.name, 'Unassigned') AS category,
+            COALESCE(aty.name, c.name, 'Unassigned') AS category,
+            wo.name AS wearer,
+            lo.name AS length_name,
             p.file_path,
             (
                 SELECT GROUP_CONCAT(t.name ORDER BY t.name SEPARATOR ', ')
@@ -132,8 +139,16 @@ try {
                 WHERE at.asset_id = a.id
             ) AS tags
          FROM assets AS a
+         LEFT JOIN asset_types AS aty
+            ON aty.id = a.asset_type_id
          LEFT JOIN asset_categories AS c
             ON c.id = a.category_id
+         LEFT JOIN wearer_options AS wo
+            ON wo.id = a.wearer_option_id
+         LEFT JOIN color_options AS co
+            ON co.id = a.primary_color_option_id
+         LEFT JOIN length_options AS lo
+            ON lo.id = a.length_option_id
          LEFT JOIN asset_photos AS p
             ON p.asset_id = a.id
             AND p.is_primary = 1
@@ -310,18 +325,28 @@ try {
                 a.name,
                 a.description,
                 a.storage_location,
-                a.color,
+                COALESCE(co.name, a.color) AS color,
                 a.size_description,
                 a.received_date,
                 a.acquisition_type,
                 a.notes,
                 a.availability_status,
-                c.name AS category,
+                COALESCE(aty.name, c.name) AS asset_type,
+                wo.name AS wearer,
+                lo.name AS length_name,
                 p.file_path,
                 p.caption
              FROM assets AS a
+             LEFT JOIN asset_types AS aty
+                ON aty.id = a.asset_type_id
              LEFT JOIN asset_categories AS c
                 ON c.id = a.category_id
+             LEFT JOIN wearer_options AS wo
+                ON wo.id = a.wearer_option_id
+             LEFT JOIN color_options AS co
+                ON co.id = a.primary_color_option_id
+             LEFT JOIN length_options AS lo
+                ON lo.id = a.length_option_id
              LEFT JOIN asset_photos AS p
                 ON p.asset_id = a.id
                 AND p.is_primary = 1
@@ -425,7 +450,7 @@ if (!is_string($assetBrowserJson)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collection Steward</title>
-    <link rel="stylesheet" href="/app.css">
+    <link rel="stylesheet" href="/app.css?v=20260825-2">
 </head>
 <body>
 <main>
@@ -452,6 +477,9 @@ if (!is_string($assetBrowserJson)) {
             <?php endif; ?>
             <?php if ($canUseCheckout): ?>
                 <a href="/checkout.php">Production checkout</a>
+            <?php endif; ?>
+            <?php if ($canManageVocabulary): ?>
+                <a href="/vocabulary.php">Vocabulary</a>
             <?php endif; ?>
             <?php if ($canManageUsers): ?>
                 <a href="/users.php">Users</a>
@@ -496,7 +524,7 @@ if (!is_string($assetBrowserJson)) {
             <div class="browser-filters">
                 <div class="field">
                     <label for="asset-search">Search assets</label>
-                    <input type="search" id="asset-search" placeholder="Name, ID, description, size, color, or tag" autocomplete="off">
+                    <input type="search" id="asset-search" placeholder="Name, ID, type, wearer, size, color, length, or attribute" autocomplete="off">
                 </div>
                 <div class="field">
                     <label for="category-filter">Type</label>
@@ -524,6 +552,8 @@ if (!is_string($assetBrowserJson)) {
                                     (string) ($assetChoice['description'] ?? ''),
                                     (string) ($assetChoice['size_description'] ?? ''),
                                     (string) ($assetChoice['color'] ?? ''),
+                                    (string) ($assetChoice['wearer'] ?? ''),
+                                    (string) ($assetChoice['length_name'] ?? ''),
                                     (string) ($assetChoice['tags'] ?? ''),
                                     (string) $assetChoice['category'],
                                 ]));
@@ -557,8 +587,10 @@ if (!is_string($assetBrowserJson)) {
                     <p id="preview-id" class="asset-preview-id"></p>
                     <dl class="asset-facts">
                         <div><dt>Type</dt><dd id="preview-category"></dd></div>
+                        <div id="preview-wearer-row"><dt>Wearer</dt><dd id="preview-wearer"></dd></div>
                         <div id="preview-size-row"><dt>Size</dt><dd id="preview-size"></dd></div>
                         <div id="preview-color-row"><dt>Color</dt><dd id="preview-color"></dd></div>
+                        <div id="preview-length-row"><dt>Length</dt><dd id="preview-length"></dd></div>
                         <div><dt>Status</dt><dd id="preview-status"></dd></div>
                         <div id="preview-location-row"><dt>Location</dt><dd id="preview-location"></dd></div>
                         <div id="preview-tags-row"><dt>Tags</dt><dd id="preview-tags"></dd></div>
@@ -605,7 +637,10 @@ if (!is_string($assetBrowserJson)) {
                 <?php endif; ?>
 
                 <dl class="asset-facts full-asset-facts">
-                    <div><dt>Type</dt><dd><?= collectionStewardEscape($asset['category'] ?? 'Unassigned') ?></dd></div>
+                    <div><dt>Type</dt><dd><?= collectionStewardEscape($asset['asset_type'] ?? 'Unassigned') ?></dd></div>
+                    <?php if (!empty($asset['wearer'])): ?>
+                        <div><dt>Wearer</dt><dd><?= collectionStewardEscape($asset['wearer']) ?></dd></div>
+                    <?php endif; ?>
                     <?php if (!empty($asset['storage_location'])): ?>
                         <div><dt>Current location</dt><dd><?= collectionStewardEscape($asset['storage_location']) ?></dd></div>
                     <?php endif; ?>
@@ -613,7 +648,10 @@ if (!is_string($assetBrowserJson)) {
                         <div><dt>Size</dt><dd><?= collectionStewardEscape($asset['size_description']) ?></dd></div>
                     <?php endif; ?>
                     <?php if (!empty($asset['color'])): ?>
-                        <div><dt>Color</dt><dd><?= collectionStewardEscape($asset['color']) ?></dd></div>
+                        <div><dt>Primary color</dt><dd><?= collectionStewardEscape($asset['color']) ?></dd></div>
+                    <?php endif; ?>
+                    <?php if (!empty($asset['length_name'])): ?>
+                        <div><dt>Length</dt><dd><?= collectionStewardEscape($asset['length_name']) ?></dd></div>
                     <?php endif; ?>
                     <?php if (!empty($asset['received_date'])): ?>
                         <div>
@@ -625,7 +663,7 @@ if (!is_string($assetBrowserJson)) {
                         </div>
                     <?php endif; ?>
                     <div>
-                        <dt>Tags</dt>
+                        <dt>Other attributes</dt>
                         <dd><?= $assignedTags === [] ? 'None' : collectionStewardEscape(implode(', ', array_column($assignedTags, 'name'))) ?></dd>
                     </div>
                     <div>
@@ -780,7 +818,9 @@ if (!is_string($assetBrowserJson)) {
             document.getElementById('preview-full-link').href = '/?asset_id=' + asset.id + '#asset-record';
 
             setOptionalPreviewValue('preview-size-row', 'preview-size', asset.size_description);
+            setOptionalPreviewValue('preview-wearer-row', 'preview-wearer', asset.wearer);
             setOptionalPreviewValue('preview-color-row', 'preview-color', asset.color);
+            setOptionalPreviewValue('preview-length-row', 'preview-length', asset.length_name);
             setOptionalPreviewValue('preview-location-row', 'preview-location', asset.storage_location);
             setOptionalPreviewValue('preview-tags-row', 'preview-tags', asset.tags);
 

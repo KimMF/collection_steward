@@ -75,11 +75,13 @@ function collectionStewardUserCan(array $user, string $capability): bool
             'checkout',
             'manage_assets',
             'manage_users',
+            'manage_vocabulary',
         ],
         'steward' => [
             'intake',
             'checkout',
             'manage_assets',
+            'manage_vocabulary',
         ],
         'intake' => [
             'intake',
@@ -138,4 +140,138 @@ function collectionStewardCsrfIsValid(mixed $submittedToken): bool
 function collectionStewardEscape(?string $value): string
 {
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
+}
+
+function collectionStewardBuildAssetName(
+    ?string $wearer,
+    ?string $primaryColor,
+    ?string $length,
+    ?string $assetType,
+    ?string $size
+): string {
+    $nameParts = [];
+
+    foreach ([$wearer, $primaryColor, $length, $assetType] as $namePart) {
+        if (!is_string($namePart)) {
+            continue;
+        }
+
+        $trimmedNamePart = trim($namePart);
+        $normalizedNamePart = strtolower($trimmedNamePart);
+
+        if (
+            $trimmedNamePart !== ''
+            && !in_array(
+                $normalizedNamePart,
+                ['unknown', 'not applicable'],
+                true
+            )
+        ) {
+            $nameParts[] = $trimmedNamePart;
+        }
+    }
+
+    $name = $nameParts !== []
+        ? implode(' ', $nameParts)
+        : 'Unclassified item';
+
+    if (is_string($size)) {
+        $trimmedSize = trim($size);
+        $normalizedSize = strtolower($trimmedSize);
+
+        if (
+            $trimmedSize !== ''
+            && !in_array($normalizedSize, ['unknown', 'not applicable'], true)
+        ) {
+            $name .= ' — ' . $trimmedSize;
+        }
+    }
+
+    return $name;
+}
+
+function collectionStewardRefreshAssetName(
+    PDO $connection,
+    int $assetId,
+    string $updatedBy
+): void {
+    $assetStatement = $connection->prepare(
+        'SELECT
+            a.size_description,
+            a.exact_size_label,
+            wo.name AS wearer,
+            co.name AS primary_color,
+            lo.name AS length_name,
+            aty.name AS asset_type,
+            so.name AS standardized_size
+         FROM assets AS a
+         LEFT JOIN wearer_options AS wo
+            ON wo.id = a.wearer_option_id
+         LEFT JOIN color_options AS co
+            ON co.id = a.primary_color_option_id
+         LEFT JOIN length_options AS lo
+            ON lo.id = a.length_option_id
+         LEFT JOIN asset_types AS aty
+            ON aty.id = a.asset_type_id
+         LEFT JOIN size_options AS so
+            ON so.id = a.size_option_id
+         WHERE a.id = :asset_id
+         LIMIT 1'
+    );
+    $assetStatement->execute([
+        'asset_id' => $assetId,
+    ]);
+    $asset = $assetStatement->fetch();
+
+    if ($asset === false) {
+        throw new DomainException('The asset for this suggestion was not found.');
+    }
+
+    $displaySize = is_string($asset['standardized_size'] ?? null)
+        ? trim($asset['standardized_size'])
+        : '';
+    $exactSizeLabel = is_string($asset['exact_size_label'] ?? null)
+        ? trim($asset['exact_size_label'])
+        : '';
+
+    if ($exactSizeLabel !== '') {
+        if (
+            $displaySize !== ''
+            && strcasecmp($displaySize, $exactSizeLabel) !== 0
+        ) {
+            $displaySize .= ' (' . $exactSizeLabel . ')';
+        } else {
+            $displaySize = $exactSizeLabel;
+        }
+    } elseif ($displaySize === '' && is_string($asset['size_description'])) {
+        $displaySize = trim($asset['size_description']);
+    }
+
+    $generatedName = collectionStewardBuildAssetName(
+        $asset['wearer'] ?? null,
+        $asset['primary_color'] ?? null,
+        $asset['length_name'] ?? null,
+        $asset['asset_type'] ?? null,
+        $displaySize
+    );
+
+    if (strlen($generatedName) > 150) {
+        throw new DomainException('Those vocabulary choices produce an item name longer than 150 characters.');
+    }
+
+    $updateStatement = $connection->prepare(
+        'UPDATE assets
+         SET name = :name,
+             color = COALESCE(:primary_color, color),
+             size_description = :size_description,
+             updated_by = :updated_by
+         WHERE id = :asset_id'
+    );
+    $updateStatement->execute([
+        'name' => $generatedName,
+        'primary_color' => $asset['primary_color'] ?? null,
+        'size_description' => $displaySize !== '' ? $displaySize : null,
+        'updated_by' => $updatedBy,
+        'asset_id' => $assetId,
+    ]);
 }

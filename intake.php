@@ -10,13 +10,45 @@ $connection = collectionStewardConnection();
 $currentUser = requireCollectionStewardCapability($connection, 'intake');
 $csrfToken = collectionStewardCsrfToken();
 
-$categoryStatement = $connection->query(
-    'SELECT id, name
-     FROM asset_categories
+$assetTypeStatement = $connection->query(
+    'SELECT id, name, category_id
+     FROM asset_types
      WHERE is_active = 1
-     ORDER BY name'
+     ORDER BY display_order, name'
 );
-$categories = $categoryStatement->fetchAll();
+$assetTypes = $assetTypeStatement->fetchAll();
+
+$wearerStatement = $connection->query(
+    'SELECT id, name
+     FROM wearer_options
+     WHERE is_active = 1
+     ORDER BY display_order, name'
+);
+$wearerOptions = $wearerStatement->fetchAll();
+
+$colorStatement = $connection->query(
+    'SELECT id, name
+     FROM color_options
+     WHERE is_active = 1
+     ORDER BY display_order, name'
+);
+$colorOptions = $colorStatement->fetchAll();
+
+$sizeStatement = $connection->query(
+    'SELECT id, name
+     FROM size_options
+     WHERE is_active = 1
+     ORDER BY display_order, name'
+);
+$sizeOptions = $sizeStatement->fetchAll();
+
+$lengthStatement = $connection->query(
+    'SELECT id, name
+     FROM length_options
+     WHERE is_active = 1
+     ORDER BY display_order, name'
+);
+$lengthOptions = $lengthStatement->fetchAll();
 
 $tagStatement = $connection->query(
     'SELECT id, name
@@ -26,11 +58,62 @@ $tagStatement = $connection->query(
 );
 $availableTags = $tagStatement->fetchAll();
 
+$controlledFields = [
+    'asset_type' => [
+        'id_field' => 'asset_type_id',
+        'suggestion_field' => 'asset_type_suggestion',
+        'vocabulary_type' => 'asset_type',
+        'label' => 'What type of item is it?',
+        'suggestion_label' => 'Suggest an item type',
+        'options' => $assetTypes,
+    ],
+    'wearer' => [
+        'id_field' => 'wearer_option_id',
+        'suggestion_field' => 'wearer_suggestion',
+        'vocabulary_type' => 'wearer',
+        'label' => 'Who is it intended to fit?',
+        'suggestion_label' => 'Suggest a wearer option',
+        'options' => $wearerOptions,
+    ],
+    'primary_color' => [
+        'id_field' => 'primary_color_option_id',
+        'suggestion_field' => 'primary_color_suggestion',
+        'vocabulary_type' => 'primary_color',
+        'label' => 'What is its primary color?',
+        'suggestion_label' => 'Suggest a primary color',
+        'options' => $colorOptions,
+    ],
+    'size' => [
+        'id_field' => 'size_option_id',
+        'suggestion_field' => 'size_suggestion',
+        'vocabulary_type' => 'size',
+        'label' => 'What standardized size is it?',
+        'suggestion_label' => 'Suggest a standardized size',
+        'options' => $sizeOptions,
+    ],
+    'length' => [
+        'id_field' => 'length_option_id',
+        'suggestion_field' => 'length_suggestion',
+        'vocabulary_type' => 'length',
+        'label' => 'What length is it?',
+        'suggestion_label' => 'Suggest a length option',
+        'options' => $lengthOptions,
+    ],
+];
+
 $values = [
-    'name' => '',
-    'category_id' => '',
-    'size_description' => '',
-    'color' => '',
+    'asset_type_id' => '',
+    'asset_type_suggestion' => '',
+    'wearer_option_id' => '',
+    'wearer_suggestion' => '',
+    'primary_color_option_id' => '',
+    'primary_color_suggestion' => '',
+    'size_option_id' => '',
+    'size_suggestion' => '',
+    'exact_size_label' => '',
+    'length_option_id' => '',
+    'length_suggestion' => '',
+    'other_attribute_suggestion' => '',
     'description' => '',
     'received_date' => date('Y-m-d'),
     'storage_location' => 'WBS intake rack',
@@ -39,12 +122,73 @@ $values = [
 
 $errors = [];
 $selectedTagIds = [];
+$selectedOptionIds = [];
+$selectedOptionNames = [];
+$selectedOptionRows = [];
+$pendingSuggestions = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach (array_keys($values) as $field) {
         if (is_string($_POST[$field] ?? null)) {
             $values[$field] = trim($_POST[$field]);
         }
+    }
+
+    foreach ($controlledFields as $fieldKey => $configuration) {
+        $submittedValue = $values[$configuration['id_field']];
+        $suggestedValue = preg_replace(
+            '/\s+/u',
+            ' ',
+            $values[$configuration['suggestion_field']]
+        );
+        $suggestedValue = is_string($suggestedValue)
+            ? trim($suggestedValue)
+            : '';
+
+        $selectedOptionIds[$fieldKey] = null;
+        $selectedOptionNames[$fieldKey] = null;
+        $selectedOptionRows[$fieldKey] = null;
+
+        if ($submittedValue === '__other__') {
+            if ($suggestedValue === '') {
+                $errors[] = 'Enter the suggested value for ' . strtolower($configuration['label']);
+            } elseif (strlen($suggestedValue) > 100) {
+                $errors[] = $configuration['suggestion_label'] . ' must be 100 characters or fewer.';
+            } else {
+                $pendingSuggestions[$configuration['vocabulary_type']] = $suggestedValue;
+            }
+
+            continue;
+        }
+
+        if ($submittedValue === '') {
+            continue;
+        }
+
+        $optionId = filter_var(
+            $submittedValue,
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        );
+        $matchedOption = null;
+
+        if ($optionId !== false) {
+            foreach ($configuration['options'] as $option) {
+                if ((int) $option['id'] === $optionId) {
+                    $matchedOption = $option;
+                    break;
+                }
+            }
+        }
+
+        if ($matchedOption === null) {
+            $errors[] = 'Choose a valid option for ' . strtolower($configuration['label']);
+            continue;
+        }
+
+        $selectedOptionIds[$fieldKey] = $optionId;
+        $selectedOptionNames[$fieldKey] = (string) $matchedOption['name'];
+        $selectedOptionRows[$fieldKey] = $matchedOption;
     }
 
     $submittedTagIds = is_array($_POST['tag_ids'] ?? null)
@@ -69,44 +213,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $selectedTagIds = array_values(array_unique($selectedTagIds));
 
+    $otherAttributeSuggestion = preg_replace(
+        '/\s+/u',
+        ' ',
+        $values['other_attribute_suggestion']
+    );
+    $otherAttributeSuggestion = is_string($otherAttributeSuggestion)
+        ? trim($otherAttributeSuggestion)
+        : '';
+
+    if (strlen($otherAttributeSuggestion) > 100) {
+        $errors[] = 'The suggested other attribute must be 100 characters or fewer.';
+    } elseif ($otherAttributeSuggestion !== '') {
+        $pendingSuggestions['tag'] = $otherAttributeSuggestion;
+    }
+
     if (!collectionStewardCsrfIsValid($_POST['csrf_token'] ?? null)) {
         $errors[] = 'The form expired. Refresh the page and try again.';
     }
 
-    if ($values['name'] === '') {
-        $errors[] = 'Enter a short name for the item.';
-    } elseif (strlen($values['name']) > 150) {
-        $errors[] = 'The item name must be 150 characters or fewer.';
-    }
-
-    $categoryId = null;
-    if ($values['category_id'] !== '') {
-        $categoryId = filter_var(
-            $values['category_id'],
-            FILTER_VALIDATE_INT,
-            ['options' => ['min_range' => 1]]
-        );
-
-        if ($categoryId === false) {
-            $errors[] = 'Choose a valid category or leave it unsure.';
-            $categoryId = null;
-        } else {
-            $validCategoryStatement = $connection->prepare(
-                'SELECT 1
-                 FROM asset_categories
-                 WHERE id = :category_id
-                   AND is_active = 1
-                 LIMIT 1'
-            );
-            $validCategoryStatement->execute([
-                'category_id' => $categoryId,
-            ]);
-
-            if ($validCategoryStatement->fetchColumn() === false) {
-                $errors[] = 'The selected category is no longer available.';
-                $categoryId = null;
-            }
-        }
+    if (strlen($values['exact_size_label']) > 100) {
+        $errors[] = 'The exact size label must be 100 characters or fewer.';
     }
 
     $receivedDate = null;
@@ -124,6 +251,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $receivedDate = $values['received_date'];
         }
+    }
+
+    $displaySize = $selectedOptionNames['size'];
+    if ($values['exact_size_label'] !== '') {
+        if (
+            is_string($displaySize)
+            && strcasecmp($displaySize, $values['exact_size_label']) !== 0
+        ) {
+            $displaySize .= ' (' . $values['exact_size_label'] . ')';
+        } else {
+            $displaySize = $values['exact_size_label'];
+        }
+    }
+
+    $generatedAssetName = collectionStewardBuildAssetName(
+        $selectedOptionNames['wearer'],
+        $selectedOptionNames['primary_color'],
+        $selectedOptionNames['length'],
+        $selectedOptionNames['asset_type'],
+        $displaySize
+    );
+
+    if (strlen($generatedAssetName) > 150) {
+        $errors[] = 'The selected attributes produce a name longer than 150 characters. Shorten the exact size label or submit an option for review.';
     }
 
     $photo = $_FILES['photo'] ?? null;
@@ -161,14 +312,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $connection->beginTransaction();
 
+            $categoryId = isset($selectedOptionRows['asset_type']['category_id'])
+                ? (int) $selectedOptionRows['asset_type']['category_id']
+                : null;
+
+            if ($categoryId === 0) {
+                $categoryId = null;
+            }
+
             $insertAssetStatement = $connection->prepare(
                 'INSERT INTO assets (
                     category_id,
+                    asset_type_id,
+                    wearer_option_id,
+                    primary_color_option_id,
+                    size_option_id,
+                    length_option_id,
                     name,
                     description,
                     storage_location,
                     color,
                     size_description,
+                    exact_size_label,
                     availability_status,
                     notes,
                     received_date,
@@ -177,11 +342,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     updated_by
                  ) VALUES (
                     :category_id,
+                    :asset_type_id,
+                    :wearer_option_id,
+                    :primary_color_option_id,
+                    :size_option_id,
+                    :length_option_id,
                     :name,
                     :description,
                     :storage_location,
                     :color,
                     :size_description,
+                    :exact_size_label,
                     :availability_status,
                     :notes,
                     :received_date,
@@ -193,11 +364,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $insertAssetStatement->execute([
                 'category_id' => $categoryId,
-                'name' => $values['name'],
+                'asset_type_id' => $selectedOptionIds['asset_type'],
+                'wearer_option_id' => $selectedOptionIds['wearer'],
+                'primary_color_option_id' => $selectedOptionIds['primary_color'],
+                'size_option_id' => $selectedOptionIds['size'],
+                'length_option_id' => $selectedOptionIds['length'],
+                'name' => $generatedAssetName,
                 'description' => $values['description'] !== '' ? $values['description'] : null,
                 'storage_location' => $values['storage_location'] !== '' ? $values['storage_location'] : null,
-                'color' => $values['color'] !== '' ? $values['color'] : null,
-                'size_description' => $values['size_description'] !== '' ? $values['size_description'] : null,
+                'color' => $selectedOptionNames['primary_color'],
+                'size_description' => $displaySize,
+                'exact_size_label' => $values['exact_size_label'] !== ''
+                    ? $values['exact_size_label']
+                    : null,
                 'availability_status' => 'available',
                 'notes' => $values['notes'] !== '' ? $values['notes'] : null,
                 'received_date' => $receivedDate,
@@ -218,6 +397,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $insertTagStatement->execute([
                         'asset_id' => $assetId,
                         'tag_id' => $tagId,
+                    ]);
+                }
+            }
+
+            if ($pendingSuggestions !== []) {
+                $insertSuggestionStatement = $connection->prepare(
+                    'INSERT INTO vocabulary_suggestions (
+                        asset_id,
+                        vocabulary_type,
+                        suggested_value,
+                        submitted_by_user_id
+                     ) VALUES (
+                        :asset_id,
+                        :vocabulary_type,
+                        :suggested_value,
+                        :submitted_by_user_id
+                     )'
+                );
+
+                foreach ($pendingSuggestions as $vocabularyType => $suggestedValue) {
+                    $insertSuggestionStatement->execute([
+                        'asset_id' => $assetId,
+                        'vocabulary_type' => $vocabularyType,
+                        'suggested_value' => $suggestedValue,
+                        'submitted_by_user_id' => (int) $currentUser['id'],
                     ]);
                 }
             }
@@ -267,7 +471,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $insertPhotoStatement->execute([
                     'asset_id' => $assetId,
                     'file_path' => $publicPhotoPath,
-                    'caption' => $values['name'],
+                    'caption' => $generatedAssetName,
                     'uploaded_by' => $currentUser['display_name'],
                 ]);
             }
@@ -292,6 +496,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $createdAsset = null;
 $createdAssetTags = [];
+$createdSuggestions = [];
 $createdAssetId = filter_input(INPUT_GET, 'created', FILTER_VALIDATE_INT);
 if (is_int($createdAssetId) && $createdAssetId > 0) {
     $createdAssetStatement = $connection->prepare(
@@ -303,12 +508,26 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
             a.color,
             a.size_description,
             a.received_date,
-            c.name AS category,
+            COALESCE(aty.name, c.name) AS asset_type,
+            wo.name AS wearer,
+            COALESCE(co.name, a.color) AS primary_color,
+            so.name AS standardized_size,
+            lo.name AS length_name,
             p.file_path,
             p.caption
          FROM assets AS a
+         LEFT JOIN asset_types AS aty
+            ON aty.id = a.asset_type_id
          LEFT JOIN asset_categories AS c
             ON c.id = a.category_id
+         LEFT JOIN wearer_options AS wo
+            ON wo.id = a.wearer_option_id
+         LEFT JOIN color_options AS co
+            ON co.id = a.primary_color_option_id
+         LEFT JOIN size_options AS so
+            ON so.id = a.size_option_id
+         LEFT JOIN length_options AS lo
+            ON lo.id = a.length_option_id
          LEFT JOIN asset_photos AS p
             ON p.asset_id = a.id
             AND p.is_primary = 1
@@ -336,6 +555,18 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
             $createdTagStatement->fetchAll(),
             'name'
         );
+
+        $createdSuggestionStatement = $connection->prepare(
+            "SELECT vocabulary_type, suggested_value
+             FROM vocabulary_suggestions
+             WHERE asset_id = :asset_id
+               AND status = 'pending'
+             ORDER BY vocabulary_type, id"
+        );
+        $createdSuggestionStatement->execute([
+            'asset_id' => $createdAssetId,
+        ]);
+        $createdSuggestions = $createdSuggestionStatement->fetchAll();
     }
 }
 
@@ -345,8 +576,8 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add incoming donation — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css">
+    <title>Intake — Collection Steward</title>
+    <link rel="stylesheet" href="/app.css?v=20260825-2">
 </head>
 <body>
 <main class="intake-page">
@@ -355,6 +586,9 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
         <a href="/intake.php" aria-current="page">Intake</a>
         <?php if (collectionStewardUserCan($currentUser, 'checkout')): ?>
             <a href="/checkout.php">Production checkout</a>
+        <?php endif; ?>
+        <?php if (collectionStewardUserCan($currentUser, 'manage_vocabulary')): ?>
+            <a href="/vocabulary.php">Vocabulary</a>
         <?php endif; ?>
         <?php if (collectionStewardUserCan($currentUser, 'manage_users')): ?>
             <a href="/users.php">Users</a>
@@ -373,7 +607,7 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
             </form>
         </div>
     </div>
-    <p class="required-note">Only the item name is required. Record what is known and leave uncertain information blank.</p>
+    <p class="required-note">Choose from the approved lists when possible. Use “Not listed” to submit a suggestion for review.</p>
 
     <?php if ($createdAsset !== null): ?>
         <section class="saved-asset" aria-labelledby="saved-asset-title">
@@ -393,20 +627,41 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
                     <h2 id="saved-asset-title"><?= collectionStewardEscape($createdAsset['name']) ?></h2>
                     <dl class="asset-facts">
                         <div><dt>Asset ID</dt><dd><?= (int) $createdAsset['id'] ?></dd></div>
-                        <div><dt>Type</dt><dd><?= collectionStewardEscape($createdAsset['category'] ?? 'Unassigned') ?></dd></div>
+                        <div><dt>Type</dt><dd><?= collectionStewardEscape($createdAsset['asset_type'] ?? 'Pending review') ?></dd></div>
+                        <?php if (!empty($createdAsset['wearer'])): ?>
+                            <div><dt>Wearer</dt><dd><?= collectionStewardEscape($createdAsset['wearer']) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if (!empty($createdAsset['primary_color'])): ?>
+                            <div><dt>Primary color</dt><dd><?= collectionStewardEscape($createdAsset['primary_color']) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if (!empty($createdAsset['length_name'])): ?>
+                            <div><dt>Length</dt><dd><?= collectionStewardEscape($createdAsset['length_name']) ?></dd></div>
+                        <?php endif; ?>
                         <?php if (!empty($createdAsset['size_description'])): ?>
                             <div><dt>Size</dt><dd><?= collectionStewardEscape($createdAsset['size_description']) ?></dd></div>
-                        <?php endif; ?>
-                        <?php if (!empty($createdAsset['color'])): ?>
-                            <div><dt>Color</dt><dd><?= collectionStewardEscape($createdAsset['color']) ?></dd></div>
                         <?php endif; ?>
                         <?php if (!empty($createdAsset['storage_location'])): ?>
                             <div><dt>Location</dt><dd><?= collectionStewardEscape($createdAsset['storage_location']) ?></dd></div>
                         <?php endif; ?>
                         <?php if ($createdAssetTags !== []): ?>
-                            <div><dt>Tags</dt><dd><?= collectionStewardEscape(implode(', ', $createdAssetTags)) ?></dd></div>
+                            <div><dt>Other attributes</dt><dd><?= collectionStewardEscape(implode(', ', $createdAssetTags)) ?></dd></div>
                         <?php endif; ?>
                     </dl>
+
+                    <?php if ($createdSuggestions !== []): ?>
+                        <div class="pending-suggestions">
+                            <strong>Pending vocabulary review:</strong>
+                            <ul>
+                                <?php foreach ($createdSuggestions as $suggestion): ?>
+                                    <li>
+                                        <?= collectionStewardEscape(str_replace('_', ' ', $suggestion['vocabulary_type'])) ?>:
+                                        <?= collectionStewardEscape($suggestion['suggested_value']) ?>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
+
                     <?php if (!empty($createdAsset['description'])): ?>
                         <p><?= collectionStewardEscape($createdAsset['description']) ?></p>
                     <?php endif; ?>
@@ -435,20 +690,6 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
         <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
 
         <div class="field">
-            <label for="name">What is the item? *</label>
-            <input
-                type="text"
-                id="name"
-                name="name"
-                maxlength="150"
-                value="<?= collectionStewardEscape($values['name']) ?>"
-                placeholder="For example: Men's black tuxedo"
-                required
-                autofocus
-            >
-        </div>
-
-        <div class="field">
             <label for="photo">Photograph the item</label>
             <input
                 type="file"
@@ -460,56 +701,82 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
             <span class="help" id="photo-help">Optional. Take a new photograph or choose one already on the device.</span>
         </div>
 
-        <div class="field">
-            <label for="category_id">What general category is it?</label>
-            <select id="category_id" name="category_id">
-                <option value="">Unsure — leave for costumer review</option>
-                <?php foreach ($categories as $category): ?>
-                    <option
-                        value="<?= (int) $category['id'] ?>"
-                        <?= (string) $category['id'] === $values['category_id'] ? 'selected' : '' ?>
+        <fieldset class="controlled-attributes">
+            <legend>Standard description</legend>
+            <p class="help">These selections create the item name in a consistent order.</p>
+
+            <?php foreach ($controlledFields as $fieldKey => $configuration): ?>
+                <?php
+                $idField = $configuration['id_field'];
+                $suggestionField = $configuration['suggestion_field'];
+                $suggestionIsOpen = $values[$idField] === '__other__';
+                ?>
+                <div class="field controlled-field">
+                    <label for="<?= collectionStewardEscape($idField) ?>"><?= collectionStewardEscape($configuration['label']) ?></label>
+                    <select
+                        id="<?= collectionStewardEscape($idField) ?>"
+                        name="<?= collectionStewardEscape($idField) ?>"
+                        data-controlled-select
+                        data-suggestion-panel="<?= collectionStewardEscape($suggestionField) ?>-panel"
                     >
-                        <?= collectionStewardEscape($category['name']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
+                        <option value="">Unsure or not applicable</option>
+                        <?php foreach ($configuration['options'] as $option): ?>
+                            <option
+                                value="<?= (int) $option['id'] ?>"
+                                <?= (string) $option['id'] === $values[$idField] ? 'selected' : '' ?>
+                            >
+                                <?= collectionStewardEscape($option['name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                        <option value="__other__" <?= $suggestionIsOpen ? 'selected' : '' ?>>Not listed — suggest an option</option>
+                    </select>
 
-        <div class="field">
-            <label for="size_description">What size is shown on the item?</label>
-            <input
-                type="text"
-                id="size_description"
-                name="size_description"
-                maxlength="100"
-                value="<?= collectionStewardEscape($values['size_description']) ?>"
-                placeholder="For example: 42L, Medium, or No size label"
-            >
-        </div>
+                    <div id="<?= collectionStewardEscape($suggestionField) ?>-panel" class="other-option" <?= $suggestionIsOpen ? '' : 'hidden' ?>>
+                        <label for="<?= collectionStewardEscape($suggestionField) ?>"><?= collectionStewardEscape($configuration['suggestion_label']) ?></label>
+                        <input
+                            type="text"
+                            id="<?= collectionStewardEscape($suggestionField) ?>"
+                            name="<?= collectionStewardEscape($suggestionField) ?>"
+                            maxlength="100"
+                            value="<?= collectionStewardEscape($values[$suggestionField]) ?>"
+                        >
+                        <span class="help">This will be submitted for review, not automatically added to the approved list.</span>
+                    </div>
+                </div>
 
-        <div class="field">
-            <label for="color">What color is it?</label>
-            <input
-                type="text"
-                id="color"
-                name="color"
-                maxlength="100"
-                value="<?= collectionStewardEscape($values['color']) ?>"
-            >
-        </div>
+                <?php if ($fieldKey === 'size'): ?>
+                    <div class="field">
+                        <label for="exact_size_label">What exactly does the garment label say?</label>
+                        <input
+                            type="text"
+                            id="exact_size_label"
+                            name="exact_size_label"
+                            maxlength="100"
+                            value="<?= collectionStewardEscape($values['exact_size_label']) ?>"
+                            placeholder="Optional, for example: 42L"
+                        >
+                    </div>
+                <?php endif; ?>
+            <?php endforeach; ?>
 
-        <?php if ($availableTags !== []): ?>
-            <fieldset class="field choices tag-selector">
-                <legend>Do any existing tags apply?</legend>
-                <span class="help">Leave these blank if you are unsure.</span>
-                <label class="tag-search-label" for="tag-search">Search tags</label>
+            <div class="generated-name-preview" role="status">
+                <strong>Generated item name:</strong>
+                <span id="generated-name-preview">Unclassified item</span>
+            </div>
+        </fieldset>
+
+        <fieldset class="field choices tag-selector">
+            <legend>Do any other attributes apply?</legend>
+            <span class="help">Select as many as apply. Leave these blank if you are unsure.</span>
+            <?php if ($availableTags !== []): ?>
+                <label class="tag-search-label" for="tag-search">Search other attributes</label>
                 <input
                     type="search"
                     id="tag-search"
-                    placeholder="Begin typing a tag name"
+                    placeholder="Begin typing an attribute"
                     autocomplete="off"
                 >
-                <p id="tag-selection-summary" class="tag-selection-summary" aria-live="polite">No tags selected.</p>
+                <p id="tag-selection-summary" class="tag-selection-summary" aria-live="polite">No attributes selected.</p>
                 <div id="tag-choices" class="tag-choices" tabindex="0">
                     <?php foreach ($availableTags as $tag): ?>
                         <label data-tag-name="<?= collectionStewardEscape(strtolower($tag['name'])) ?>">
@@ -523,9 +790,23 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
                         </label>
                     <?php endforeach; ?>
                 </div>
-                <p id="no-tag-results" class="help" hidden>No existing tags match that search.</p>
-            </fieldset>
-        <?php endif; ?>
+                <p id="no-tag-results" class="help" hidden>No existing attributes match that search.</p>
+            <?php else: ?>
+                <p class="help">No approved other attributes have been added yet.</p>
+            <?php endif; ?>
+            <div class="other-option">
+                <label for="other_attribute_suggestion">Attribute not listed?</label>
+                <input
+                    type="text"
+                    id="other_attribute_suggestion"
+                    name="other_attribute_suggestion"
+                    maxlength="100"
+                    value="<?= collectionStewardEscape($values['other_attribute_suggestion']) ?>"
+                    placeholder="Suggest one attribute for review"
+                >
+                <span class="help">This suggestion will not be added to the approved list until a steward reviews it.</span>
+            </div>
+        </fieldset>
 
         <div class="field">
             <label for="description">What else would help a costumer recognize it?</label>
@@ -635,6 +916,76 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
             image.src = imageUrl;
         });
 
+        const controlledSelects = Array.from(
+            document.querySelectorAll('[data-controlled-select]')
+        );
+        const generatedNamePreview = document.getElementById('generated-name-preview');
+        const exactSizeLabel = document.getElementById('exact_size_label');
+
+        const selectedOptionName = function (selectId) {
+            const select = document.getElementById(selectId);
+
+            if (!select || select.value === '' || select.value === '__other__') {
+                return '';
+            }
+
+            const optionName = select.options[select.selectedIndex].text.trim();
+            const normalizedOptionName = optionName.toLocaleLowerCase();
+
+            return normalizedOptionName === 'unknown'
+                || normalizedOptionName === 'not applicable'
+                ? ''
+                : optionName;
+        };
+
+        const updateGeneratedName = function () {
+            const nameParts = [
+                selectedOptionName('wearer_option_id'),
+                selectedOptionName('primary_color_option_id'),
+                selectedOptionName('length_option_id'),
+                selectedOptionName('asset_type_id'),
+            ].filter(Boolean);
+            let displaySize = selectedOptionName('size_option_id');
+            const exactLabel = exactSizeLabel.value.trim();
+
+            if (exactLabel) {
+                displaySize = displaySize
+                    && displaySize.toLocaleLowerCase() !== exactLabel.toLocaleLowerCase()
+                    ? displaySize + ' (' + exactLabel + ')'
+                    : exactLabel;
+            }
+
+            let generatedName = nameParts.length > 0
+                ? nameParts.join(' ')
+                : 'Unclassified item';
+
+            if (displaySize) {
+                generatedName += ' — ' + displaySize;
+            }
+
+            generatedNamePreview.textContent = generatedName;
+        };
+
+        controlledSelects.forEach(function (select) {
+            const suggestionPanel = document.getElementById(
+                select.dataset.suggestionPanel
+            );
+            const suggestionInput = suggestionPanel.querySelector('input');
+
+            const updateSuggestionPanel = function () {
+                const needsSuggestion = select.value === '__other__';
+                suggestionPanel.hidden = !needsSuggestion;
+                suggestionInput.required = needsSuggestion;
+                updateGeneratedName();
+            };
+
+            select.addEventListener('change', updateSuggestionPanel);
+            updateSuggestionPanel();
+        });
+
+        exactSizeLabel.addEventListener('input', updateGeneratedName);
+        updateGeneratedName();
+
         const tagSearch = document.getElementById('tag-search');
         const tagChoices = document.getElementById('tag-choices');
         const tagSelectionSummary = document.getElementById('tag-selection-summary');
@@ -649,7 +1000,7 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
                 });
 
                 if (checkedTags.length === 0) {
-                    tagSelectionSummary.textContent = 'No tags selected.';
+                    tagSelectionSummary.textContent = 'No attributes selected.';
                     return;
                 }
 
@@ -658,7 +1009,7 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
                 });
 
                 tagSelectionSummary.textContent = names.length
-                    + (names.length === 1 ? ' tag selected: ' : ' tags selected: ')
+                    + (names.length === 1 ? ' attribute selected: ' : ' attributes selected: ')
                     + names.join(', ');
             };
 

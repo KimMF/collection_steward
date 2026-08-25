@@ -158,7 +158,7 @@ $users = $userStatement->fetchAll();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Users — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css">
+    <link rel="stylesheet" href="/app.css?v=20260825-2">
 </head>
 <body>
 <main>
@@ -166,6 +166,7 @@ $users = $userStatement->fetchAll();
         <a href="/">View assets</a>
         <a href="/intake.php">Intake</a>
         <a href="/checkout.php">Production checkout</a>
+        <a href="/vocabulary.php">Vocabulary</a>
         <a href="/users.php" aria-current="page">Users</a>
     </nav>
 
