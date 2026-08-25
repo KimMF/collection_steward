@@ -7,3 +7,6 @@ Its purpose is to help organizations preserve, understand, share responsibly, an
 Current release: 0.1.0 (Pilot Baseline)
 
 Release notes are preserved in [`docs/releases`](docs/releases).
+
+The current post-baseline pilot changes and deployment checks are described in
+[`docs/sonya-pilot-improvements.md`](docs/sonya-pilot-improvements.md).

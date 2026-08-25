@@ -7,7 +7,7 @@ require __DIR__ . '/lib/application.php';
 startCollectionStewardSession();
 
 $connection = collectionStewardConnection();
-$currentUser = requireCollectionStewardUser($connection);
+$currentUser = requireCollectionStewardCapability($connection, 'checkout');
 $csrfToken = collectionStewardCsrfToken();
 
 $productionStatement = $connection->query(
@@ -490,8 +490,11 @@ if ($productionId !== null) {
 <main>
     <nav aria-label="Collection Steward">
         <a href="/">View assets</a>
-        <a href="/intake.php">Add incoming donation</a>
+        <a href="/intake.php">Intake</a>
         <a href="/checkout.php" aria-current="page">Production checkout</a>
+        <?php if (collectionStewardUserCan($currentUser, 'manage_users')): ?>
+            <a href="/users.php">Users</a>
+        <?php endif; ?>
     </nav>
 
     <h1>Production checkout</h1>

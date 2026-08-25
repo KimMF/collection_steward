@@ -42,7 +42,7 @@ function collectionStewardCurrentUser(PDO $connection): ?array
     }
 
     $statement = $connection->prepare(
-        'SELECT id, username, display_name
+        'SELECT id, username, display_name, role
          FROM users
          WHERE id = :user_id
            AND is_active = 1
@@ -63,6 +63,36 @@ function collectionStewardCurrentUser(PDO $connection): ?array
     return $user;
 }
 
+function collectionStewardUserCan(array $user, string $capability): bool
+{
+    $role = is_string($user['role'] ?? null)
+        ? $user['role']
+        : '';
+
+    $capabilitiesByRole = [
+        'admin' => [
+            'intake',
+            'checkout',
+            'manage_assets',
+            'manage_users',
+        ],
+        'steward' => [
+            'intake',
+            'checkout',
+            'manage_assets',
+        ],
+        'intake' => [
+            'intake',
+        ],
+    ];
+
+    return in_array(
+        $capability,
+        $capabilitiesByRole[$role] ?? [],
+        true
+    );
+}
+
 function requireCollectionStewardUser(PDO $connection): array
 {
     $user = collectionStewardCurrentUser($connection);
@@ -70,6 +100,20 @@ function requireCollectionStewardUser(PDO $connection): array
     if ($user === null) {
         header('Location: /');
         exit;
+    }
+
+    return $user;
+}
+
+function requireCollectionStewardCapability(
+    PDO $connection,
+    string $capability
+): array {
+    $user = requireCollectionStewardUser($connection);
+
+    if (!collectionStewardUserCan($user, $capability)) {
+        http_response_code(403);
+        exit('Your Collection Steward account does not have access to this page.');
     }
 
     return $user;

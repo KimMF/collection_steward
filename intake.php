@@ -7,7 +7,7 @@ require __DIR__ . '/lib/application.php';
 startCollectionStewardSession();
 
 $connection = collectionStewardConnection();
-$currentUser = requireCollectionStewardUser($connection);
+$currentUser = requireCollectionStewardCapability($connection, 'intake');
 $csrfToken = collectionStewardCsrfToken();
 
 $categoryStatement = $connection->query(
@@ -291,18 +291,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $createdAsset = null;
+$createdAssetTags = [];
 $createdAssetId = filter_input(INPUT_GET, 'created', FILTER_VALIDATE_INT);
 if (is_int($createdAssetId) && $createdAssetId > 0) {
     $createdAssetStatement = $connection->prepare(
-        'SELECT id, name
-         FROM assets
-         WHERE id = :asset_id
+        'SELECT
+            a.id,
+            a.name,
+            a.description,
+            a.storage_location,
+            a.color,
+            a.size_description,
+            a.received_date,
+            c.name AS category,
+            p.file_path,
+            p.caption
+         FROM assets AS a
+         LEFT JOIN asset_categories AS c
+            ON c.id = a.category_id
+         LEFT JOIN asset_photos AS p
+            ON p.asset_id = a.id
+            AND p.is_primary = 1
+         WHERE a.id = :asset_id
          LIMIT 1'
     );
     $createdAssetStatement->execute([
         'asset_id' => $createdAssetId,
     ]);
     $createdAsset = $createdAssetStatement->fetch() ?: null;
+
+    if ($createdAsset !== null) {
+        $createdTagStatement = $connection->prepare(
+            'SELECT t.name
+             FROM tags AS t
+             JOIN asset_tags AS at
+                ON at.tag_id = t.id
+             WHERE at.asset_id = :asset_id
+             ORDER BY t.name'
+        );
+        $createdTagStatement->execute([
+            'asset_id' => $createdAssetId,
+        ]);
+        $createdAssetTags = array_column(
+            $createdTagStatement->fetchAll(),
+            'name'
+        );
+    }
 }
 
 ?>
@@ -315,23 +349,75 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
     <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-<main>
+<main class="intake-page">
     <nav aria-label="Collection Steward">
         <a href="/">View assets</a>
-        <a href="/intake.php" aria-current="page">Add incoming donation</a>
-        <a href="/checkout.php">Production checkout</a>
+        <a href="/intake.php" aria-current="page">Intake</a>
+        <?php if (collectionStewardUserCan($currentUser, 'checkout')): ?>
+            <a href="/checkout.php">Production checkout</a>
+        <?php endif; ?>
+        <?php if (collectionStewardUserCan($currentUser, 'manage_users')): ?>
+            <a href="/users.php">Users</a>
+        <?php endif; ?>
     </nav>
 
-    <h1>Add an incoming donation</h1>
-    <p>Signed in as <strong><?= collectionStewardEscape($currentUser['display_name']) ?></strong></p>
+    <div class="page-heading">
+        <div>
+            <h1>WBS intake</h1>
+            <p>Add one incoming donation at a time.</p>
+        </div>
+        <div class="user-session">
+            <p>Signed in as <strong><?= collectionStewardEscape($currentUser['display_name']) ?></strong></p>
+            <form method="post" action="/">
+                <button type="submit" name="action" value="logout" class="secondary">Sign out</button>
+            </form>
+        </div>
+    </div>
     <p class="required-note">Only the item name is required. Record what is known and leave uncertain information blank.</p>
 
     <?php if ($createdAsset !== null): ?>
-        <div class="notice" role="status">
-            <strong><?= collectionStewardEscape($createdAsset['name']) ?></strong>
-            was saved as Asset <?= (int) $createdAsset['id'] ?>.
-            <a href="/?asset_id=<?= (int) $createdAsset['id'] ?>">View the asset</a>.
-        </div>
+        <section class="saved-asset" aria-labelledby="saved-asset-title">
+            <div class="notice" role="status">
+                <strong>Saved successfully as Asset <?= (int) $createdAsset['id'] ?>.</strong>
+            </div>
+
+            <div class="saved-asset-card">
+                <?php if (!empty($createdAsset['file_path'])): ?>
+                    <img
+                        src="<?= collectionStewardEscape($createdAsset['file_path']) ?>"
+                        alt="<?= collectionStewardEscape($createdAsset['caption'] ?: $createdAsset['name']) ?>"
+                        class="saved-asset-photo"
+                    >
+                <?php endif; ?>
+                <div>
+                    <h2 id="saved-asset-title"><?= collectionStewardEscape($createdAsset['name']) ?></h2>
+                    <dl class="asset-facts">
+                        <div><dt>Asset ID</dt><dd><?= (int) $createdAsset['id'] ?></dd></div>
+                        <div><dt>Type</dt><dd><?= collectionStewardEscape($createdAsset['category'] ?? 'Unassigned') ?></dd></div>
+                        <?php if (!empty($createdAsset['size_description'])): ?>
+                            <div><dt>Size</dt><dd><?= collectionStewardEscape($createdAsset['size_description']) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if (!empty($createdAsset['color'])): ?>
+                            <div><dt>Color</dt><dd><?= collectionStewardEscape($createdAsset['color']) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if (!empty($createdAsset['storage_location'])): ?>
+                            <div><dt>Location</dt><dd><?= collectionStewardEscape($createdAsset['storage_location']) ?></dd></div>
+                        <?php endif; ?>
+                        <?php if ($createdAssetTags !== []): ?>
+                            <div><dt>Tags</dt><dd><?= collectionStewardEscape(implode(', ', $createdAssetTags)) ?></dd></div>
+                        <?php endif; ?>
+                    </dl>
+                    <?php if (!empty($createdAsset['description'])): ?>
+                        <p><?= collectionStewardEscape($createdAsset['description']) ?></p>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="button-row">
+                <a class="button" href="/intake.php#intake-form">Enter another item</a>
+                <a class="button secondary" href="/?asset_id=<?= (int) $createdAsset['id'] ?>#asset-record">View full item record</a>
+            </div>
+        </section>
     <?php endif; ?>
 
     <?php if ($errors !== []): ?>
@@ -345,7 +431,7 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
         </div>
     <?php endif; ?>
 
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" id="intake-form" class="intake-form">
         <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
 
         <div class="field">
@@ -413,20 +499,31 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
         </div>
 
         <?php if ($availableTags !== []): ?>
-            <fieldset class="field choices">
+            <fieldset class="field choices tag-selector">
                 <legend>Do any existing tags apply?</legend>
                 <span class="help">Leave these blank if you are unsure.</span>
-                <?php foreach ($availableTags as $tag): ?>
-                    <label>
-                        <input
-                            type="checkbox"
-                            name="tag_ids[]"
-                            value="<?= (int) $tag['id'] ?>"
-                            <?= in_array((int) $tag['id'], $selectedTagIds, true) ? 'checked' : '' ?>
-                        >
-                        <?= collectionStewardEscape($tag['name']) ?>
-                    </label>
-                <?php endforeach; ?>
+                <label class="tag-search-label" for="tag-search">Search tags</label>
+                <input
+                    type="search"
+                    id="tag-search"
+                    placeholder="Begin typing a tag name"
+                    autocomplete="off"
+                >
+                <p id="tag-selection-summary" class="tag-selection-summary" aria-live="polite">No tags selected.</p>
+                <div id="tag-choices" class="tag-choices" tabindex="0">
+                    <?php foreach ($availableTags as $tag): ?>
+                        <label data-tag-name="<?= collectionStewardEscape(strtolower($tag['name'])) ?>">
+                            <input
+                                type="checkbox"
+                                name="tag_ids[]"
+                                value="<?= (int) $tag['id'] ?>"
+                                <?= in_array((int) $tag['id'], $selectedTagIds, true) ? 'checked' : '' ?>
+                            >
+                            <span><?= collectionStewardEscape($tag['name']) ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+                <p id="no-tag-results" class="help" hidden>No existing tags match that search.</p>
             </fieldset>
         <?php endif; ?>
 
@@ -537,6 +634,59 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
 
             image.src = imageUrl;
         });
+
+        const tagSearch = document.getElementById('tag-search');
+        const tagChoices = document.getElementById('tag-choices');
+        const tagSelectionSummary = document.getElementById('tag-selection-summary');
+        const noTagResults = document.getElementById('no-tag-results');
+
+        if (tagSearch && tagChoices && tagSelectionSummary && noTagResults) {
+            const tagLabels = Array.from(tagChoices.querySelectorAll('label'));
+
+            const updateTagSelection = function () {
+                const checkedTags = tagLabels.filter(function (label) {
+                    return label.querySelector('input').checked;
+                });
+
+                if (checkedTags.length === 0) {
+                    tagSelectionSummary.textContent = 'No tags selected.';
+                    return;
+                }
+
+                const names = checkedTags.map(function (label) {
+                    return label.querySelector('span').textContent.trim();
+                });
+
+                tagSelectionSummary.textContent = names.length
+                    + (names.length === 1 ? ' tag selected: ' : ' tags selected: ')
+                    + names.join(', ');
+            };
+
+            const filterTags = function () {
+                const query = tagSearch.value.trim().toLocaleLowerCase();
+                let visibleCount = 0;
+
+                tagLabels.forEach(function (label) {
+                    const checkbox = label.querySelector('input');
+                    const matches = label.dataset.tagName.includes(query);
+                    const shouldShow = query === '' || matches || checkbox.checked;
+                    label.hidden = !shouldShow;
+
+                    if (shouldShow) {
+                        visibleCount += 1;
+                    }
+                });
+
+                noTagResults.hidden = visibleCount !== 0;
+            };
+
+            tagSearch.addEventListener('input', filterTags);
+            tagChoices.addEventListener('change', function () {
+                updateTagSelection();
+                filterTags();
+            });
+            updateTagSelection();
+        }
     </script>
 </main>
 </body>
