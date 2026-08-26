@@ -275,14 +275,14 @@ button:disabled {
     scroll-behavior: smooth;
 }
 
-.asset-category-group,
-.asset-category-group:first-child {
+.asset-type-group,
+.asset-type-group:first-child {
     border-top: 0;
     margin: 0;
     padding: 0;
 }
 
-.asset-category-group h3 {
+.asset-type-group h3 {
     background: #ece8de;
     color: #333;
     font-size: 0.95rem;
@@ -359,7 +359,6 @@ button:disabled {
     margin-bottom: 0.1rem;
 }
 
-.asset-preview-id,
 .eyebrow {
     color: #555;
     font-weight: 700;
@@ -407,13 +406,6 @@ button:disabled {
     margin-top: 2.5rem;
     padding-top: 1.25rem;
     scroll-margin-top: 1rem;
-}
-
-.asset-id-badge {
-    background: #ece8de;
-    border-radius: 999px;
-    font-weight: 700;
-    padding: 0.4rem 0.8rem;
 }
 
 .asset-photo-panel {
@@ -532,13 +524,49 @@ button:disabled {
 }
 
 .user-card {
-    align-items: center;
+    align-items: start;
     border: 1px solid #c7c4bc;
     border-radius: 0.45rem;
     display: flex;
     gap: 1rem;
     justify-content: space-between;
     padding: 0.85rem;
+}
+
+.password-page {
+    max-width: 44rem;
+}
+
+.password-form {
+    max-width: 32rem;
+}
+
+.account-status {
+    color: #8a3f13;
+    font-weight: 700;
+}
+
+.user-actions {
+    display: grid;
+    gap: 0.65rem;
+    justify-items: end;
+    min-width: min(100%, 25rem);
+}
+
+.password-reset {
+    border-top: 1px solid #d5d1c8;
+    padding-top: 0.65rem;
+    width: 100%;
+}
+
+.password-reset summary {
+    cursor: pointer;
+    font-weight: 700;
+    text-align: right;
+}
+
+.password-reset form {
+    margin-top: 0.75rem;
 }
 
 section,
@@ -678,6 +706,15 @@ section,
 
     .sign-out-form {
         margin-bottom: 1rem;
+    }
+
+    .user-actions {
+        justify-items: stretch;
+        margin-top: 1rem;
+    }
+
+    .password-reset summary {
+        text-align: left;
     }
 
     .asset-preview-photo,

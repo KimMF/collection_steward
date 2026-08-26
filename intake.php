@@ -11,7 +11,7 @@ $currentUser = requireCollectionStewardCapability($connection, 'intake');
 $csrfToken = collectionStewardCsrfToken();
 
 $assetTypeStatement = $connection->query(
-    'SELECT id, name, category_id
+    'SELECT id, name
      FROM asset_types
      WHERE is_active = 1
      ORDER BY display_order, name'
@@ -124,7 +124,6 @@ $errors = [];
 $selectedTagIds = [];
 $selectedOptionIds = [];
 $selectedOptionNames = [];
-$selectedOptionRows = [];
 $pendingSuggestions = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -147,7 +146,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $selectedOptionIds[$fieldKey] = null;
         $selectedOptionNames[$fieldKey] = null;
-        $selectedOptionRows[$fieldKey] = null;
 
         if ($submittedValue === '__other__') {
             if ($suggestedValue === '') {
@@ -188,7 +186,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $selectedOptionIds[$fieldKey] = $optionId;
         $selectedOptionNames[$fieldKey] = (string) $matchedOption['name'];
-        $selectedOptionRows[$fieldKey] = $matchedOption;
     }
 
     $submittedTagIds = is_array($_POST['tag_ids'] ?? null)
@@ -312,17 +309,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $connection->beginTransaction();
 
-            $categoryId = isset($selectedOptionRows['asset_type']['category_id'])
-                ? (int) $selectedOptionRows['asset_type']['category_id']
-                : null;
-
-            if ($categoryId === 0) {
-                $categoryId = null;
-            }
-
             $insertAssetStatement = $connection->prepare(
                 'INSERT INTO assets (
-                    category_id,
                     asset_type_id,
                     wearer_option_id,
                     primary_color_option_id,
@@ -341,7 +329,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     created_by,
                     updated_by
                  ) VALUES (
-                    :category_id,
                     :asset_type_id,
                     :wearer_option_id,
                     :primary_color_option_id,
@@ -363,7 +350,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
             $insertAssetStatement->execute([
-                'category_id' => $categoryId,
                 'asset_type_id' => $selectedOptionIds['asset_type'],
                 'wearer_option_id' => $selectedOptionIds['wearer'],
                 'primary_color_option_id' => $selectedOptionIds['primary_color'],
@@ -508,7 +494,7 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
             a.color,
             a.size_description,
             a.received_date,
-            COALESCE(aty.name, c.name) AS asset_type,
+            aty.name AS asset_type,
             wo.name AS wearer,
             COALESCE(co.name, a.color) AS primary_color,
             so.name AS standardized_size,
@@ -518,8 +504,6 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
          FROM assets AS a
          LEFT JOIN asset_types AS aty
             ON aty.id = a.asset_type_id
-         LEFT JOIN asset_categories AS c
-            ON c.id = a.category_id
          LEFT JOIN wearer_options AS wo
             ON wo.id = a.wearer_option_id
          LEFT JOIN color_options AS co
@@ -577,7 +561,7 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Intake — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260825-2">
+    <link rel="stylesheet" href="/app.css?v=20260825-4">
 </head>
 <body>
 <main class="intake-page">
@@ -593,6 +577,7 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
         <?php if (collectionStewardUserCan($currentUser, 'manage_users')): ?>
             <a href="/users.php">Users</a>
         <?php endif; ?>
+        <a href="/change-password.php">Password</a>
     </nav>
 
     <div class="page-heading">
@@ -624,7 +609,7 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
                     >
                 <?php endif; ?>
                 <div>
-                    <h2 id="saved-asset-title"><?= collectionStewardEscape($createdAsset['name']) ?></h2>
+                    <h2 id="saved-asset-title"><?= collectionStewardEscape(collectionStewardAssetLabel((int) $createdAsset['id'], $createdAsset['name'])) ?></h2>
                     <dl class="asset-facts">
                         <div><dt>Asset ID</dt><dd><?= (int) $createdAsset['id'] ?></dd></div>
                         <div><dt>Type</dt><dd><?= collectionStewardEscape($createdAsset['asset_type'] ?? 'Pending review') ?></dd></div>

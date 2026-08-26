@@ -484,7 +484,7 @@ if ($productionId !== null) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Production checkout — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260825-2">
+    <link rel="stylesheet" href="/app.css?v=20260825-4">
 </head>
 <body>
 <main>
@@ -498,6 +498,7 @@ if ($productionId !== null) {
         <?php if (collectionStewardUserCan($currentUser, 'manage_users')): ?>
             <a href="/users.php">Users</a>
         <?php endif; ?>
+        <a href="/change-password.php">Password</a>
     </nav>
 
     <h1>Production checkout</h1>
@@ -573,11 +574,7 @@ if ($productionId !== null) {
                             <option value="">Choose an asset</option>
                             <?php foreach ($availableAssets as $assetChoice): ?>
                                 <option value="<?= (int) $assetChoice['id'] ?>">
-                                    <?= collectionStewardEscape($assetChoice['name']) ?>
-                                    <?php if (!empty($assetChoice['size_description'])): ?>
-                                        — <?= collectionStewardEscape($assetChoice['size_description']) ?>
-                                    <?php endif; ?>
-                                    — Asset <?= (int) $assetChoice['id'] ?>
+                                    <?= collectionStewardEscape(collectionStewardAssetLabel((int) $assetChoice['id'], $assetChoice['name'])) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -623,9 +620,8 @@ if ($productionId !== null) {
                                 </h3>
                                 <p>
                                     <a href="/?asset_id=<?= (int) $checkout['asset_id'] ?>">
-                                        <?= collectionStewardEscape($checkout['asset_name']) ?>
+                                        <?= collectionStewardEscape(collectionStewardAssetLabel((int) $checkout['asset_id'], $checkout['asset_name'])) ?>
                                     </a>
-                                    (Asset <?= (int) $checkout['asset_id'] ?>)
                                 </p>
                                 <?php if (!empty($checkout['size_description'])): ?>
                                     <p>Size: <?= collectionStewardEscape($checkout['size_description']) ?></p>

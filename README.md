@@ -14,3 +14,11 @@ The current post-baseline pilot changes and deployment checks are described in
 The database-controlled intake fields and vocabulary-review workflow are
 described in
 [`docs/controlled-intake-vocabulary.md`](docs/controlled-intake-vocabulary.md).
+
+The removal of the legacy category structure after pilot-data standardization
+is documented in
+[`docs/asset-type-standardization.md`](docs/asset-type-standardization.md).
+
+Individual accounts, temporary passwords, and required first-login password
+changes are documented in
+[`docs/individual-passwords.md`](docs/individual-passwords.md).

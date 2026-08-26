@@ -20,8 +20,8 @@ $roles = [
 ];
 
 $values = [
-    'username' => 'WBS-intake',
-    'display_name' => 'WBS Intake',
+    'username' => 'sonya',
+    'display_name' => 'Sonya',
     'role' => 'intake',
 ];
 $errors = [];
@@ -43,11 +43,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        $password = is_string($_POST['password'] ?? null)
-            ? $_POST['password']
+        $temporaryPassword = is_string($_POST['temporary_password'] ?? null)
+            ? $_POST['temporary_password']
             : '';
-        $confirmPassword = is_string($_POST['confirm_password'] ?? null)
-            ? $_POST['confirm_password']
+        $confirmTemporaryPassword = is_string($_POST['confirm_temporary_password'] ?? null)
+            ? $_POST['confirm_temporary_password']
             : '';
 
         if (!preg_match('/\A[A-Za-z0-9._-]{3,100}\z/', $values['username'])) {
@@ -62,10 +62,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'Choose a valid account role.';
         }
 
-        if (strlen($password) < 12) {
-            $errors[] = 'Use a password containing at least 12 characters.';
-        } elseif (!hash_equals($password, $confirmPassword)) {
-            $errors[] = 'The two password entries do not match.';
+        if (strlen($temporaryPassword) < 12 || strlen($temporaryPassword) > 255) {
+            $errors[] = 'Use a temporary password containing 12–255 characters.';
+        } elseif (!hash_equals($temporaryPassword, $confirmTemporaryPassword)) {
+            $errors[] = 'The two temporary password entries do not match.';
         }
 
         if ($errors === []) {
@@ -90,27 +90,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     username,
                     display_name,
                     role,
-                    password_hash
+                    password_hash,
+                    must_change_password
                  ) VALUES (
                     :username,
                     :display_name,
                     :role,
-                    :password_hash
+                    :password_hash,
+                    1
                  )'
             );
             $insertStatement->execute([
                 'username' => $values['username'],
                 'display_name' => $values['display_name'],
                 'role' => $values['role'],
-                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'password_hash' => password_hash($temporaryPassword, PASSWORD_DEFAULT),
             ]);
 
-            $notice = $values['display_name'] . ' was created.';
+            $notice = $values['display_name'] . ' was created with a temporary password. The application will require a private replacement at first login.';
             $values = [
                 'username' => '',
                 'display_name' => '',
                 'role' => 'intake',
             ];
+        }
+    }
+
+    if ($errors === [] && $action === 'reset_password') {
+        $userId = filter_input(INPUT_POST, 'user_id', FILTER_VALIDATE_INT);
+        $temporaryPassword = is_string($_POST['temporary_password'] ?? null)
+            ? $_POST['temporary_password']
+            : '';
+        $confirmTemporaryPassword = is_string($_POST['confirm_temporary_password'] ?? null)
+            ? $_POST['confirm_temporary_password']
+            : '';
+
+        if (!is_int($userId) || $userId < 1) {
+            $errors[] = 'Choose a valid account.';
+        } elseif ($userId === (int) $currentUser['id']) {
+            $errors[] = 'Use the Password page to change the account you are currently using.';
+        }
+
+        if (strlen($temporaryPassword) < 12 || strlen($temporaryPassword) > 255) {
+            $errors[] = 'Use a temporary password containing 12–255 characters.';
+        } elseif (!hash_equals($temporaryPassword, $confirmTemporaryPassword)) {
+            $errors[] = 'The two temporary password entries do not match.';
+        }
+
+        if ($errors === []) {
+            $targetStatement = $connection->prepare(
+                'SELECT display_name
+                 FROM users
+                 WHERE id = :user_id
+                 LIMIT 1'
+            );
+            $targetStatement->execute([
+                'user_id' => $userId,
+            ]);
+            $targetDisplayName = $targetStatement->fetchColumn();
+
+            if (!is_string($targetDisplayName)) {
+                $errors[] = 'That account no longer exists.';
+            }
+        }
+
+        if ($errors === []) {
+            $resetStatement = $connection->prepare(
+                'UPDATE users
+                 SET password_hash = :password_hash,
+                     must_change_password = 1,
+                     password_changed_at = NULL
+                 WHERE id = :user_id'
+            );
+            $resetStatement->execute([
+                'password_hash' => password_hash($temporaryPassword, PASSWORD_DEFAULT),
+                'user_id' => $userId,
+            ]);
+
+            $notice = $targetDisplayName . ' now has a temporary password and must choose a private replacement at the next login.';
         }
     }
 
@@ -145,7 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $userStatement = $connection->query(
-    'SELECT id, username, display_name, role, is_active
+    'SELECT id, username, display_name, role, is_active, must_change_password
      FROM users
      ORDER BY is_active DESC, display_name, id'
 );
@@ -158,7 +215,7 @@ $users = $userStatement->fetchAll();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Users — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260825-2">
+    <link rel="stylesheet" href="/app.css?v=20260825-4">
 </head>
 <body>
 <main>
@@ -168,6 +225,7 @@ $users = $userStatement->fetchAll();
         <a href="/checkout.php">Production checkout</a>
         <a href="/vocabulary.php">Vocabulary</a>
         <a href="/users.php" aria-current="page">Users</a>
+        <a href="/change-password.php">Password</a>
     </nav>
 
     <h1>Collection Steward users</h1>
@@ -190,7 +248,7 @@ $users = $userStatement->fetchAll();
 
     <section>
         <h2>Create an account</h2>
-        <p class="help">The suggested WBS-intake account can add incoming donations and view assets, but cannot change tags, strike work, checkout, cast, or users.</p>
+        <p class="help">Create a separate account for each person. An Intake-only account can add incoming donations and view assets, but cannot change tags, strike work, checkout, cast, or users.</p>
 
         <form method="post">
             <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
@@ -218,13 +276,14 @@ $users = $userStatement->fetchAll();
             </div>
 
             <div class="field">
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" minlength="12" autocomplete="new-password" required>
+                <label for="temporary_password">Temporary password</label>
+                <input type="password" id="temporary_password" name="temporary_password" minlength="12" maxlength="255" autocomplete="new-password" required>
+                <span class="help">Give this temporary password to the new user privately. It must be replaced at first login.</span>
             </div>
 
             <div class="field">
-                <label for="confirm_password">Confirm password</label>
-                <input type="password" id="confirm_password" name="confirm_password" minlength="12" autocomplete="new-password" required>
+                <label for="confirm_temporary_password">Confirm temporary password</label>
+                <input type="password" id="confirm_temporary_password" name="confirm_temporary_password" minlength="12" maxlength="255" autocomplete="new-password" required>
             </div>
 
             <button type="submit">Create account</button>
@@ -240,16 +299,44 @@ $users = $userStatement->fetchAll();
                         <strong><?= collectionStewardEscape($user['display_name']) ?></strong><br>
                         <span><?= collectionStewardEscape($user['username']) ?></span><br>
                         <span><?= collectionStewardEscape($roles[$user['role']] ?? $user['role']) ?></span>
+                        <?php if ((int) $user['must_change_password'] === 1): ?>
+                            <br><span class="account-status">Password change required</span>
+                        <?php endif; ?>
                     </div>
-                    <form method="post">
-                        <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
-                        <input type="hidden" name="action" value="set_active">
-                        <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
-                        <input type="hidden" name="is_active" value="<?= (int) $user['is_active'] === 1 ? 0 : 1 ?>">
-                        <button type="submit" class="secondary" <?= (int) $user['id'] === (int) $currentUser['id'] ? 'disabled' : '' ?>>
-                            <?= (int) $user['is_active'] === 1 ? 'Deactivate' : 'Reactivate' ?>
-                        </button>
-                    </form>
+                    <div class="user-actions">
+                        <form method="post">
+                            <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
+                            <input type="hidden" name="action" value="set_active">
+                            <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
+                            <input type="hidden" name="is_active" value="<?= (int) $user['is_active'] === 1 ? 0 : 1 ?>">
+                            <button type="submit" class="secondary" <?= (int) $user['id'] === (int) $currentUser['id'] ? 'disabled' : '' ?>>
+                                <?= (int) $user['is_active'] === 1 ? 'Deactivate' : 'Reactivate' ?>
+                            </button>
+                        </form>
+
+                        <?php if ((int) $user['id'] !== (int) $currentUser['id']): ?>
+                            <details class="password-reset">
+                                <summary>Issue temporary password</summary>
+                                <form method="post">
+                                    <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
+                                    <input type="hidden" name="action" value="reset_password">
+                                    <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
+
+                                    <div class="field">
+                                        <label for="temporary_password_<?= (int) $user['id'] ?>">Temporary password</label>
+                                        <input type="password" id="temporary_password_<?= (int) $user['id'] ?>" name="temporary_password" minlength="12" maxlength="255" autocomplete="new-password" required>
+                                    </div>
+
+                                    <div class="field">
+                                        <label for="confirm_temporary_password_<?= (int) $user['id'] ?>">Confirm temporary password</label>
+                                        <input type="password" id="confirm_temporary_password_<?= (int) $user['id'] ?>" name="confirm_temporary_password" minlength="12" maxlength="255" autocomplete="new-password" required>
+                                    </div>
+
+                                    <button type="submit">Save temporary password</button>
+                                </form>
+                            </details>
+                        <?php endif; ?>
+                    </div>
                 </article>
             <?php endforeach; ?>
         </div>

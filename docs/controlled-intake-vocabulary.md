@@ -50,6 +50,8 @@ names, categories, colors, sizes, and photographs are preserved. Existing items
 can be standardized gradually rather than all at once.
 
 Run migration 010 before migration 011 if it has not already been run.
+After every existing asset has a controlled item type, migration 013 retires
+the original category structure. See `docs/asset-type-standardization.md`.
 
 ## Add the approved starting values
 
@@ -67,7 +69,7 @@ The tables and relevant columns are:
 
 | Table | Values to enter |
 | --- | --- |
-| `asset_types` | `name`; optional `category_id`; `display_order`; `is_active` = 1 |
+| `asset_types` | `name`; `description`; `display_order`; `is_active` = 1 |
 | `wearer_options` | `name`; `display_order`; `is_active` = 1 |
 | `color_options` | `name`; `display_order`; `is_active` = 1 |
 | `size_options` | `name`; `display_order`; `is_active` = 1 |
@@ -75,9 +77,8 @@ The tables and relevant columns are:
 | `tags` | Continue using this existing table for other attributes |
 
 Lower `display_order` values appear first. Reusing the same display order is
-allowed; names then appear alphabetically. For an asset type, `category_id` can
-link a detailed type such as **Skirt** to an existing broad category. It may be
-left blank until that mapping is decided.
+allowed; names then appear alphabetically. Descriptions record the agreed scope
+of each item type and may be edited as the vocabulary develops.
 
 A practical first set to consider is:
 
@@ -86,7 +87,7 @@ A practical first set to consider is:
 | Wearer | Women's; Men's; Unisex/Any; Child; Unknown |
 | Length | Short; Medium; Long; Not applicable; Unknown |
 | Size | Extra Small; Small; Medium; Large; Extra Large; One Size; Unknown |
-| Item type | Skirt; Dress; Blouse; Shirt; Pants; Jacket; Coat; Vest; Hat; Shoes; Accessory |
+| Item type | Skirt; Dress; Blouse; Shirt; Pants; Jacket; Coat; Vest; Hat; Shoes; Accessory; Sweater |
 | Primary color | Black; White; Gray; Brown; Tan; Beige; Cream/Ivory; Red; Burgundy; Orange; Yellow; Green; Teal; Blue; Navy; Purple; Pink; Gold; Silver; Multicolor; Unknown |
 | Other attributes | Sleeves, closures, construction details, decoration, fit, style, matching-set, laundering, and repair tags listed in migration 012 |
 

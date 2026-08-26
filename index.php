@@ -32,7 +32,7 @@ if (
 
 $asset = null;
 $assetChoices = [];
-$assetsByCategory = [];
+$assetsByType = [];
 $assignedTags = [];
 $availableTags = [];
 $strikeActions = [];
@@ -127,7 +127,7 @@ try {
             COALESCE(co.name, a.color) AS color,
             a.size_description,
             a.availability_status,
-            COALESCE(aty.name, c.name, 'Unassigned') AS category,
+            COALESCE(aty.name, 'Unassigned') AS asset_type,
             wo.name AS wearer,
             lo.name AS length_name,
             p.file_path,
@@ -141,8 +141,6 @@ try {
          FROM assets AS a
          LEFT JOIN asset_types AS aty
             ON aty.id = a.asset_type_id
-         LEFT JOIN asset_categories AS c
-            ON c.id = a.category_id
          LEFT JOIN wearer_options AS wo
             ON wo.id = a.wearer_option_id
          LEFT JOIN color_options AS co
@@ -152,13 +150,18 @@ try {
          LEFT JOIN asset_photos AS p
             ON p.asset_id = a.id
             AND p.is_primary = 1
-         ORDER BY category, a.name, a.id"
+         ORDER BY asset_type, a.name, a.id"
     );
     $assetChoices = $assetChoiceStatement->fetchAll();
 
-    foreach ($assetChoices as $assetChoice) {
-        $categoryName = (string) $assetChoice['category'];
-        $assetsByCategory[$categoryName][] = $assetChoice;
+    foreach ($assetChoices as $assetIndex => $assetChoice) {
+        $assetChoice['display_label'] = collectionStewardAssetLabel(
+            (int) $assetChoice['id'],
+            $assetChoice['name']
+        );
+        $assetChoices[$assetIndex] = $assetChoice;
+        $typeName = (string) $assetChoice['asset_type'];
+        $assetsByType[$typeName][] = $assetChoice;
     }
 
     $requestedAssetId = filter_input(
@@ -331,7 +334,7 @@ try {
                 a.acquisition_type,
                 a.notes,
                 a.availability_status,
-                COALESCE(aty.name, c.name) AS asset_type,
+                aty.name AS asset_type,
                 wo.name AS wearer,
                 lo.name AS length_name,
                 p.file_path,
@@ -339,8 +342,6 @@ try {
              FROM assets AS a
              LEFT JOIN asset_types AS aty
                 ON aty.id = a.asset_type_id
-             LEFT JOIN asset_categories AS c
-                ON c.id = a.category_id
              LEFT JOIN wearer_options AS wo
                 ON wo.id = a.wearer_option_id
              LEFT JOIN color_options AS co
@@ -450,7 +451,7 @@ if (!is_string($assetBrowserJson)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260825-2">
+    <link rel="stylesheet" href="/app.css?v=20260825-4">
 </head>
 <body>
 <main>
@@ -484,6 +485,7 @@ if (!is_string($assetBrowserJson)) {
             <?php if ($canManageUsers): ?>
                 <a href="/users.php">Users</a>
             <?php endif; ?>
+            <a href="/change-password.php">Password</a>
         </nav>
     <?php endif; ?>
 
@@ -527,12 +529,12 @@ if (!is_string($assetBrowserJson)) {
                     <input type="search" id="asset-search" placeholder="Name, ID, type, wearer, size, color, length, or attribute" autocomplete="off">
                 </div>
                 <div class="field">
-                    <label for="category-filter">Type</label>
-                    <select id="category-filter">
+                    <label for="type-filter">Type</label>
+                    <select id="type-filter">
                         <option value="">All types</option>
-                        <?php foreach (array_keys($assetsByCategory) as $categoryName): ?>
-                            <option value="<?= collectionStewardEscape(strtolower($categoryName)) ?>">
-                                <?= collectionStewardEscape($categoryName) ?>
+                        <?php foreach (array_keys($assetsByType) as $typeName): ?>
+                            <option value="<?= collectionStewardEscape(strtolower($typeName)) ?>">
+                                <?= collectionStewardEscape($typeName) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -541,10 +543,10 @@ if (!is_string($assetBrowserJson)) {
 
             <div class="asset-browser-layout">
                 <div id="asset-browser-list" class="asset-browser-list" aria-label="Assets grouped by type">
-                    <?php foreach ($assetsByCategory as $categoryName => $categoryAssets): ?>
-                        <section class="asset-category-group" data-category="<?= collectionStewardEscape(strtolower($categoryName)) ?>">
-                            <h3><?= collectionStewardEscape($categoryName) ?></h3>
-                            <?php foreach ($categoryAssets as $assetChoice): ?>
+                    <?php foreach ($assetsByType as $typeName => $typeAssets): ?>
+                        <section class="asset-type-group" data-type="<?= collectionStewardEscape(strtolower($typeName)) ?>">
+                            <h3><?= collectionStewardEscape($typeName) ?></h3>
+                            <?php foreach ($typeAssets as $assetChoice): ?>
                                 <?php
                                 $searchText = strtolower(implode(' ', [
                                     (string) $assetChoice['id'],
@@ -555,7 +557,7 @@ if (!is_string($assetBrowserJson)) {
                                     (string) ($assetChoice['wearer'] ?? ''),
                                     (string) ($assetChoice['length_name'] ?? ''),
                                     (string) ($assetChoice['tags'] ?? ''),
-                                    (string) $assetChoice['category'],
+                                    (string) $assetChoice['asset_type'],
                                 ]));
                                 ?>
                                 <a
@@ -570,8 +572,10 @@ if (!is_string($assetBrowserJson)) {
                                         <span class="asset-list-placeholder" aria-hidden="true">No photo</span>
                                     <?php endif; ?>
                                     <span>
-                                        <strong><?= collectionStewardEscape($assetChoice['name']) ?></strong>
-                                        <small>Asset <?= (int) $assetChoice['id'] ?><?= !empty($assetChoice['size_description']) ? ' · ' . collectionStewardEscape($assetChoice['size_description']) : '' ?></small>
+                                        <strong><?= collectionStewardEscape($assetChoice['display_label']) ?></strong>
+                                        <?php if (!empty($assetChoice['size_description'])): ?>
+                                            <small>Size <?= collectionStewardEscape($assetChoice['size_description']) ?></small>
+                                        <?php endif; ?>
                                     </span>
                                 </a>
                             <?php endforeach; ?>
@@ -584,9 +588,8 @@ if (!is_string($assetBrowserJson)) {
                     <img id="preview-photo" class="asset-preview-photo" alt="" hidden>
                     <p id="preview-no-photo" class="asset-preview-placeholder">No photograph available</p>
                     <h3 id="preview-name"></h3>
-                    <p id="preview-id" class="asset-preview-id"></p>
                     <dl class="asset-facts">
-                        <div><dt>Type</dt><dd id="preview-category"></dd></div>
+                        <div><dt>Type</dt><dd id="preview-type"></dd></div>
                         <div id="preview-wearer-row"><dt>Wearer</dt><dd id="preview-wearer"></dd></div>
                         <div id="preview-size-row"><dt>Size</dt><dd id="preview-size"></dd></div>
                         <div id="preview-color-row"><dt>Color</dt><dd id="preview-color"></dd></div>
@@ -606,9 +609,8 @@ if (!is_string($assetBrowserJson)) {
                 <div class="section-heading">
                     <div>
                         <p class="eyebrow">Full item record</p>
-                        <h2><?= collectionStewardEscape($asset['name']) ?></h2>
+                        <h2><?= collectionStewardEscape(collectionStewardAssetLabel((int) $asset['id'], $asset['name'])) ?></h2>
                     </div>
-                    <p class="asset-id-badge">Asset <?= (int) $asset['id'] ?></p>
                 </div>
 
                 <div class="notice">
@@ -786,9 +788,9 @@ if (!is_string($assetBrowserJson)) {
         );
         const assetList = document.getElementById('asset-browser-list');
         const assetItems = Array.from(document.querySelectorAll('.asset-list-item'));
-        const assetGroups = Array.from(document.querySelectorAll('.asset-category-group'));
+        const assetGroups = Array.from(document.querySelectorAll('.asset-type-group'));
         const assetSearch = document.getElementById('asset-search');
-        const categoryFilter = document.getElementById('category-filter');
+        const typeFilter = document.getElementById('type-filter');
         const resultCount = document.getElementById('asset-result-count');
         const noAssetResults = document.getElementById('no-asset-results');
         let previewedAssetId = null;
@@ -808,9 +810,8 @@ if (!is_string($assetBrowserJson)) {
             }
 
             previewedAssetId = String(asset.id);
-            document.getElementById('preview-name').textContent = asset.name;
-            document.getElementById('preview-id').textContent = 'Asset ' + asset.id;
-            document.getElementById('preview-category').textContent = asset.category;
+            document.getElementById('preview-name').textContent = asset.display_label;
+            document.getElementById('preview-type').textContent = asset.asset_type;
             document.getElementById('preview-status').textContent = String(asset.availability_status)
                 .replaceAll('_', ' ')
                 .replace(/^./, function (letter) { return letter.toUpperCase(); });
@@ -849,7 +850,7 @@ if (!is_string($assetBrowserJson)) {
 
         const visibleAssetItems = function () {
             return assetItems.filter(function (item) {
-                return !item.hidden && !item.closest('.asset-category-group').hidden;
+                return !item.hidden && !item.closest('.asset-type-group').hidden;
             });
         };
 
@@ -881,16 +882,16 @@ if (!is_string($assetBrowserJson)) {
 
         const filterAssets = function () {
             const query = assetSearch.value.trim().toLocaleLowerCase();
-            const selectedCategory = categoryFilter.value;
+            const selectedType = typeFilter.value;
             let visibleCount = 0;
 
             assetGroups.forEach(function (group) {
                 let groupCount = 0;
-                const categoryMatches = selectedCategory === ''
-                    || group.dataset.category === selectedCategory;
+                const typeMatches = selectedType === ''
+                    || group.dataset.type === selectedType;
 
                 group.querySelectorAll('.asset-list-item').forEach(function (item) {
-                    const matches = categoryMatches
+                    const matches = typeMatches
                         && (query === '' || item.dataset.search.includes(query));
                     item.hidden = !matches;
 
@@ -934,7 +935,7 @@ if (!is_string($assetBrowserJson)) {
         }, { passive: true });
 
         assetSearch.addEventListener('input', filterAssets);
-        categoryFilter.addEventListener('change', filterAssets);
+        typeFilter.addEventListener('change', filterAssets);
 
         const initiallySelected = document.querySelector('.asset-list-item.is-current')
             || assetItems[0];

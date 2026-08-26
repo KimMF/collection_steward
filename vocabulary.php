@@ -230,31 +230,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]);
                 }
 
-                if ($vocabularyType === 'asset_type') {
-                    $categoryStatement = $connection->prepare(
-                        'SELECT category_id
-                         FROM asset_types
-                         WHERE id = :asset_type_id
-                         LIMIT 1'
-                    );
-                    $categoryStatement->execute([
-                        'asset_type_id' => $resolvedOptionId,
-                    ]);
-                    $categoryId = $categoryStatement->fetchColumn();
-
-                    if ($categoryId !== false && $categoryId !== null) {
-                        $updateCategoryStatement = $connection->prepare(
-                            'UPDATE assets
-                             SET category_id = :category_id
-                             WHERE id = :asset_id'
-                        );
-                        $updateCategoryStatement->execute([
-                            'category_id' => (int) $categoryId,
-                            'asset_id' => (int) $suggestion['asset_id'],
-                        ]);
-                    }
-                }
-
                 if ($vocabularyType !== 'tag') {
                     collectionStewardRefreshAssetName(
                         $connection,
@@ -339,7 +314,7 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vocabulary review — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260825-2">
+    <link rel="stylesheet" href="/app.css?v=20260825-4">
 </head>
 <body>
 <main>
@@ -351,6 +326,7 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
         <?php if (collectionStewardUserCan($currentUser, 'manage_users')): ?>
             <a href="/users.php">Users</a>
         <?php endif; ?>
+        <a href="/change-password.php">Password</a>
     </nav>
 
     <h1>Vocabulary review</h1>
@@ -391,8 +367,7 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
                             <p class="eyebrow"><?= collectionStewardEscape($configuration['label']) ?> suggestion</p>
                             <h2><?= collectionStewardEscape($suggestion['suggested_value']) ?></h2>
                             <p>
-                                For <a href="/?asset_id=<?= (int) $suggestion['asset_id'] ?>#asset-record"><?= collectionStewardEscape($suggestion['asset_name']) ?></a>
-                                (Asset <?= (int) $suggestion['asset_id'] ?>)
+                                For <a href="/?asset_id=<?= (int) $suggestion['asset_id'] ?>#asset-record"><?= collectionStewardEscape(collectionStewardAssetLabel((int) $suggestion['asset_id'], $suggestion['asset_name'])) ?></a>
                             </p>
                             <?php if (!empty($suggestion['submitted_by'])): ?>
                                 <p>Submitted by <?= collectionStewardEscape($suggestion['submitted_by']) ?></p>

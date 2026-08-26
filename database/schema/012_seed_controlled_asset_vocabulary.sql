@@ -5,9 +5,6 @@
 -- This file is safe to run again: INSERT IGNORE skips a value when a record
 -- with the same unique name already exists.
 --
--- Asset type category_id values are deliberately left NULL. They can be linked
--- to existing broad categories later without affecting intake.
-
 INSERT IGNORE INTO asset_types (name, display_order)
 VALUES
     ('Skirt', 10),
@@ -20,7 +17,8 @@ VALUES
     ('Vest', 80),
     ('Hat', 90),
     ('Shoes', 100),
-    ('Accessory', 110);
+    ('Accessory', 110),
+    ('Sweater', 120);
 
 
 INSERT IGNORE INTO wearer_options (name, display_order)

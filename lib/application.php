@@ -35,14 +35,17 @@ function collectionStewardConnection(): PDO
     );
 }
 
-function collectionStewardCurrentUser(PDO $connection): ?array
+function collectionStewardCurrentUser(
+    PDO $connection,
+    bool $allowPasswordChangeRequired = false
+): ?array
 {
     if (!isset($_SESSION['user_id'])) {
         return null;
     }
 
     $statement = $connection->prepare(
-        'SELECT id, username, display_name, role
+        'SELECT id, username, display_name, role, must_change_password
          FROM users
          WHERE id = :user_id
            AND is_active = 1
@@ -58,6 +61,14 @@ function collectionStewardCurrentUser(PDO $connection): ?array
     if ($user === false) {
         unset($_SESSION['user_id']);
         return null;
+    }
+
+    if (
+        (int) $user['must_change_password'] === 1
+        && !$allowPasswordChangeRequired
+    ) {
+        header('Location: /change-password.php');
+        exit;
     }
 
     return $user;
@@ -95,9 +106,15 @@ function collectionStewardUserCan(array $user, string $capability): bool
     );
 }
 
-function requireCollectionStewardUser(PDO $connection): array
+function requireCollectionStewardUser(
+    PDO $connection,
+    bool $allowPasswordChangeRequired = false
+): array
 {
-    $user = collectionStewardCurrentUser($connection);
+    $user = collectionStewardCurrentUser(
+        $connection,
+        $allowPasswordChangeRequired
+    );
 
     if ($user === null) {
         header('Location: /');
@@ -140,6 +157,15 @@ function collectionStewardCsrfIsValid(mixed $submittedToken): bool
 function collectionStewardEscape(?string $value): string
 {
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
+}
+
+function collectionStewardAssetLabel(int $assetId, ?string $name): string
+{
+    $descriptiveName = is_string($name) && trim($name) !== ''
+        ? trim($name)
+        : 'Unnamed asset';
+
+    return 'Asset ' . $assetId . ' — ' . $descriptiveName;
 }
 
 function collectionStewardBuildAssetName(
