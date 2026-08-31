@@ -1338,8 +1338,20 @@ if (in_array($requestedViewMode, ['compact', 'expanded'], true)) {
     $viewMode = 'expanded';
 }
 
+$compactScope = measurementText($_GET, 'scope') === 'group'
+    ? 'group'
+    : 'actor';
+$showAllMeasurementSessions = measurementText(
+    $_GET,
+    'all_sessions'
+) === '1';
 $showAllActorSessions = $viewMode === 'compact'
-    && measurementText($_GET, 'all_sessions') === '1';
+    && $compactScope === 'actor'
+    && $showAllMeasurementSessions;
+$groupProductionId = measurementPositiveInteger(
+    $_GET['group_production_id'] ?? null
+);
+$groupActorSearch = measurementText($_GET, 'group_actor_search');
 
 $pendingSessionCount = (int) $connection->query(
     "SELECT COUNT(*)
@@ -1520,7 +1532,7 @@ if ($requestedSessionId !== null) {
         ]);
         $actorHistory = $historyStatement->fetchAll();
 
-        if ($viewMode === 'compact') {
+        if ($viewMode === 'compact' && $compactScope === 'actor') {
             $compactTypeStatement = $connection->prepare(
                 'SELECT
                     mt.id AS measurement_type_id,
@@ -1631,30 +1643,308 @@ $venueStatement = $connection->query(
 );
 $venues = $venueStatement->fetchAll();
 
-$reviewListLinkParameters = [
-    'list' => 'review',
-    'view' => $viewMode,
-];
-$recentListLinkParameters = [
-    'list' => 'recent',
-    'view' => $viewMode,
-];
-$clearSearchLinkParameters = [
-    'list' => 'review',
-    'view' => $viewMode,
-];
-if ($showAllActorSessions) {
-    $reviewListLinkParameters['all_sessions'] = 1;
-    $recentListLinkParameters['all_sessions'] = 1;
-    $clearSearchLinkParameters['all_sessions'] = 1;
+$selectedGroupProduction = null;
+$groupActorCount = 0;
+
+if ($compactScope === 'group') {
+    foreach ($productions as $production) {
+        if ((int) $production['id'] === $groupProductionId) {
+            $selectedGroupProduction = $production;
+            break;
+        }
+    }
+
+    if ($selectedGroupProduction === null) {
+        $preferredProductionId = $selectedSession !== null
+            && $selectedSession['production_id'] !== null
+            ? (int) $selectedSession['production_id']
+            : null;
+
+        foreach ($productions as $production) {
+            if ($preferredProductionId === null
+                || (int) $production['id'] === $preferredProductionId
+            ) {
+                $selectedGroupProduction = $production;
+                $groupProductionId = (int) $production['id'];
+                break;
+            }
+        }
+    }
 }
 
-$compactViewLinkParameters = [
-    'view' => 'compact',
+if ($viewMode === 'compact'
+    && $compactScope === 'group'
+    && $selectedSession !== null
+    && $groupProductionId !== null
+) {
+    $groupActorSql =
+        'SELECT
+            pe.id AS person_id,
+            pe.display_name AS actor_name,
+            pe.first_name,
+            pe.last_name,
+            GROUP_CONCAT(
+                pc.character_name
+                ORDER BY pc.display_order, pc.id
+                SEPARATOR \'; \'
+            ) AS group_characters
+         FROM production_cast AS pc
+         JOIN people AS pe
+            ON pe.id = pc.person_id
+         WHERE pc.production_id = :group_production_id';
+    $groupActorParameters = [
+        'group_production_id' => $groupProductionId,
+    ];
+
+    if ($groupActorSearch !== '') {
+        $groupActorSql .=
+            ' AND (
+                pe.display_name LIKE :group_actor_display
+                OR pe.first_name LIKE :group_actor_first
+                OR pe.last_name LIKE :group_actor_last
+            )';
+        $groupActorSearchPattern = '%' . $groupActorSearch . '%';
+        $groupActorParameters['group_actor_display'] =
+            $groupActorSearchPattern;
+        $groupActorParameters['group_actor_first'] =
+            $groupActorSearchPattern;
+        $groupActorParameters['group_actor_last'] =
+            $groupActorSearchPattern;
+    }
+
+    $groupActorSql .=
+        ' GROUP BY
+            pe.id,
+            pe.display_name,
+            pe.first_name,
+            pe.last_name
+          ORDER BY
+            COALESCE(pe.last_name, pe.display_name),
+            COALESCE(pe.first_name, pe.display_name),
+            pe.id';
+    $groupActorStatement = $connection->prepare($groupActorSql);
+    $groupActorStatement->execute($groupActorParameters);
+    $groupActors = $groupActorStatement->fetchAll();
+    $groupActorCount = count($groupActors);
+
+    $groupSessionsByActor = [];
+    $groupSessionIds = [];
+
+    if ($groupActors !== []) {
+        $groupSessionParameters = [];
+        $groupPersonPlaceholders = [];
+        foreach ($groupActors as $groupActorIndex => $groupActor) {
+            $placeholderName = 'group_person_' . $groupActorIndex;
+            $groupPersonPlaceholders[] = ':' . $placeholderName;
+            $groupSessionParameters[$placeholderName] =
+                (int) $groupActor['person_id'];
+        }
+
+        $groupSessionSql =
+            'SELECT
+                ms.id AS measurement_session_id,
+                ms.person_id,
+                ms.measured_on,
+                ms.date_precision,
+                ms.review_status,
+                pe.display_name AS actor_name,
+                pe.first_name,
+                pe.last_name,
+                pr.name AS production_name,
+                pr.production_year,
+                (
+                    SELECT COUNT(*)
+                    FROM measurement_values AS stored_value
+                    WHERE stored_value.measurement_session_id = ms.id
+                ) AS measurement_count,
+                (
+                    SELECT COUNT(*)
+                    FROM measurement_values AS flagged_value
+                    WHERE flagged_value.measurement_session_id = ms.id
+                      AND flagged_value.needs_review = 1
+                ) AS flagged_value_count
+             FROM measurement_sessions AS ms
+             JOIN people AS pe
+                ON pe.id = ms.person_id
+             LEFT JOIN productions AS pr
+                ON pr.id = ms.production_id
+             WHERE ms.person_id IN ('
+            . implode(', ', $groupPersonPlaceholders)
+            . ')';
+
+        if (!$showAllMeasurementSessions) {
+            $groupSessionSql .=
+                ' AND NOT EXISTS (
+                    SELECT 1
+                    FROM measurement_sessions AS newer_session
+                    WHERE newer_session.person_id = ms.person_id
+                      AND (
+                        newer_session.measured_on > ms.measured_on
+                        OR (
+                            newer_session.measured_on = ms.measured_on
+                            AND newer_session.id > ms.id
+                        )
+                      )
+                )';
+        }
+
+        $groupSessionSql .=
+            ' ORDER BY
+                COALESCE(pe.last_name, pe.display_name),
+                COALESCE(pe.first_name, pe.display_name),
+                pe.id,
+                ms.measured_on DESC,
+                ms.id DESC';
+        $groupSessionStatement = $connection->prepare($groupSessionSql);
+        $groupSessionStatement->execute($groupSessionParameters);
+
+        foreach ($groupSessionStatement->fetchAll() as $groupSession) {
+            $personId = (int) $groupSession['person_id'];
+            $groupSessionsByActor[$personId][] = $groupSession;
+            $groupSessionIds[] =
+                (int) $groupSession['measurement_session_id'];
+        }
+
+        foreach ($groupActors as $groupActor) {
+            $personId = (int) $groupActor['person_id'];
+            $actorSessions = $groupSessionsByActor[$personId] ?? [];
+
+            if ($actorSessions === []) {
+                $compactSessions[] = [
+                    'measurement_session_id' => null,
+                    'person_id' => $personId,
+                    'actor_name' => $groupActor['actor_name'],
+                    'first_name' => $groupActor['first_name'],
+                    'last_name' => $groupActor['last_name'],
+                    'measured_on' => null,
+                    'date_precision' => 'day',
+                    'review_status' => 'unrecorded',
+                    'production_name' => null,
+                    'production_year' => null,
+                    'measurement_count' => 0,
+                    'flagged_value_count' => 0,
+                    'group_characters' => $groupActor['group_characters'],
+                ];
+                continue;
+            }
+
+            foreach ($actorSessions as $actorSession) {
+                $actorSession['group_characters'] =
+                    $groupActor['group_characters'];
+                $compactSessions[] = $actorSession;
+            }
+        }
+    }
+
+    $compactTypeSql =
+        'SELECT
+            mt.id AS measurement_type_id,
+            mt.code,
+            mt.name,
+            mt.value_kind,
+            mt.unit,
+            mt.display_order
+         FROM measurement_types AS mt
+         WHERE mt.is_active = 1';
+    $compactTypeParameters = [];
+
+    if ($groupSessionIds !== []) {
+        $groupTypeSessionPlaceholders = [];
+        foreach ($groupSessionIds as $groupSessionIndex => $groupSessionId) {
+            $placeholderName = 'group_type_session_' . $groupSessionIndex;
+            $groupTypeSessionPlaceholders[] = ':' . $placeholderName;
+            $compactTypeParameters[$placeholderName] = $groupSessionId;
+        }
+        $compactTypeSql .=
+            ' OR EXISTS (
+                SELECT 1
+                FROM measurement_values AS group_type_value
+                WHERE group_type_value.measurement_type_id = mt.id
+                  AND group_type_value.measurement_session_id IN ('
+            . implode(', ', $groupTypeSessionPlaceholders)
+            . ')
+            )';
+    }
+
+    $compactTypeSql .= ' ORDER BY mt.display_order, mt.name';
+    $compactTypeStatement = $connection->prepare($compactTypeSql);
+    $compactTypeStatement->execute($compactTypeParameters);
+    $compactMeasurementTypes = $compactTypeStatement->fetchAll();
+
+    if ($groupSessionIds !== []) {
+        $groupValueParameters = [];
+        $groupValueSessionPlaceholders = [];
+        foreach ($groupSessionIds as $groupSessionIndex => $groupSessionId) {
+            $placeholderName = 'group_value_session_' . $groupSessionIndex;
+            $groupValueSessionPlaceholders[] = ':' . $placeholderName;
+            $groupValueParameters[$placeholderName] = $groupSessionId;
+        }
+
+        $groupValueStatement = $connection->prepare(
+            'SELECT
+                mv.measurement_session_id,
+                mv.measurement_type_id,
+                mt.value_kind,
+                mv.raw_value,
+                mv.numeric_value,
+                mv.text_value,
+                mv.value_status,
+                mv.needs_review,
+                mv.source_import_cell_id
+             FROM measurement_values AS mv
+             JOIN measurement_types AS mt
+                ON mt.id = mv.measurement_type_id
+             WHERE mv.measurement_session_id IN ('
+            . implode(', ', $groupValueSessionPlaceholders)
+            . ')'
+        );
+        $groupValueStatement->execute($groupValueParameters);
+
+        foreach ($groupValueStatement->fetchAll() as $compactValue) {
+            $compactValues[(int) $compactValue['measurement_session_id']][
+                (int) $compactValue['measurement_type_id']
+            ] = $compactValue;
+        }
+    }
+}
+
+$compactContextParameters = [
+    'scope' => $compactScope,
 ];
-$expandedViewLinkParameters = [
-    'view' => 'expanded',
-];
+if ($showAllMeasurementSessions) {
+    $compactContextParameters['all_sessions'] = 1;
+}
+if ($compactScope === 'group') {
+    if ($groupProductionId !== null) {
+        $compactContextParameters['group_production_id'] =
+            $groupProductionId;
+    }
+    if ($groupActorSearch !== '') {
+        $compactContextParameters['group_actor_search'] =
+            $groupActorSearch;
+    }
+}
+
+$reviewListLinkParameters = array_merge(
+    ['list' => 'review', 'view' => $viewMode],
+    $compactContextParameters
+);
+$recentListLinkParameters = array_merge(
+    ['list' => 'recent', 'view' => $viewMode],
+    $compactContextParameters
+);
+$clearSearchLinkParameters = array_merge(
+    ['list' => 'review', 'view' => $viewMode],
+    $compactContextParameters
+);
+$compactViewLinkParameters = array_merge(
+    ['view' => 'compact'],
+    $compactContextParameters
+);
+$expandedViewLinkParameters = array_merge(
+    ['view' => 'expanded'],
+    $compactContextParameters
+);
 if ($requestedSessionId !== null) {
     $compactViewLinkParameters['session_id'] = $requestedSessionId;
     $expandedViewLinkParameters['session_id'] = $requestedSessionId;
@@ -1666,9 +1956,15 @@ if ($actorSearch !== '') {
     $compactViewLinkParameters['list'] = $listMode;
     $expandedViewLinkParameters['list'] = $listMode;
 }
-if ($showAllActorSessions) {
-    $compactViewLinkParameters['all_sessions'] = 1;
-}
+
+$actorScopeLinkParameters = $compactViewLinkParameters;
+$actorScopeLinkParameters['scope'] = 'actor';
+unset(
+    $actorScopeLinkParameters['group_production_id'],
+    $actorScopeLinkParameters['group_actor_search']
+);
+$groupScopeLinkParameters = $compactViewLinkParameters;
+$groupScopeLinkParameters['scope'] = 'group';
 
 ?>
 <!DOCTYPE html>
@@ -1677,7 +1973,7 @@ if ($showAllActorSessions) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Actor measurements — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260831-1">
+    <link rel="stylesheet" href="/app.css?v=20260831-2">
 </head>
 <body>
 <main class="measurements-page">
@@ -1740,8 +2036,15 @@ if ($showAllActorSessions) {
         <aside class="measurement-browser" aria-label="Find measurement sessions">
             <form method="get" class="measurement-search">
                 <input type="hidden" name="view" value="<?= collectionStewardEscape($viewMode) ?>">
-                <?php if ($showAllActorSessions): ?>
+                <input type="hidden" name="scope" value="<?= collectionStewardEscape($compactScope) ?>">
+                <?php if ($showAllMeasurementSessions): ?>
                     <input type="hidden" name="all_sessions" value="1">
+                <?php endif; ?>
+                <?php if ($compactScope === 'group' && $groupProductionId !== null): ?>
+                    <input type="hidden" name="group_production_id" value="<?= $groupProductionId ?>">
+                <?php endif; ?>
+                <?php if ($compactScope === 'group' && $groupActorSearch !== ''): ?>
+                    <input type="hidden" name="group_actor_search" value="<?= collectionStewardEscape($groupActorSearch) ?>">
                 <?php endif; ?>
                 <div class="field">
                     <label for="actor_search">Find an actor</label>
@@ -1776,9 +2079,10 @@ if ($showAllActorSessions) {
                             'session_id' => (int) $sessionChoice['measurement_session_id'],
                             'view' => $viewMode,
                         ];
-                        if ($showAllActorSessions) {
-                            $sessionLinkParameters['all_sessions'] = 1;
-                        }
+                        $sessionLinkParameters = array_merge(
+                            $sessionLinkParameters,
+                            $compactContextParameters
+                        );
                         if ($actorSearch !== '') {
                             $sessionLinkParameters['actor_search'] = $actorSearch;
                         } else {
@@ -1937,22 +2241,39 @@ if ($showAllActorSessions) {
                 </header>
 
                 <div class="measurement-view-controls">
-                    <div class="measurement-view-switch" aria-label="Measurement layout">
-                        <span>Layout</span>
-                        <a
-                            href="/measurements.php?<?= collectionStewardEscape(http_build_query($compactViewLinkParameters)) ?>"
-                            <?= $viewMode === 'compact' ? 'aria-current="page"' : '' ?>
-                        >Compact</a>
-                        <a
-                            href="/measurements.php?<?= collectionStewardEscape(http_build_query($expandedViewLinkParameters)) ?>"
-                            <?= $viewMode === 'expanded' ? 'aria-current="page"' : '' ?>
-                        >Expanded</a>
+                    <div class="measurement-switches">
+                        <div class="measurement-view-switch" aria-label="Measurement layout">
+                            <span>Layout</span>
+                            <a
+                                href="/measurements.php?<?= collectionStewardEscape(http_build_query($compactViewLinkParameters)) ?>"
+                                <?= $viewMode === 'compact' ? 'aria-current="page"' : '' ?>
+                            >Compact</a>
+                            <a
+                                href="/measurements.php?<?= collectionStewardEscape(http_build_query($expandedViewLinkParameters)) ?>"
+                                <?= $viewMode === 'expanded' ? 'aria-current="page"' : '' ?>
+                            >Expanded</a>
+                        </div>
+
+                        <?php if ($viewMode === 'compact'): ?>
+                            <div class="measurement-view-switch measurement-scope-switch" aria-label="Compact table scope">
+                                <span>Display</span>
+                                <a
+                                    href="/measurements.php?<?= collectionStewardEscape(http_build_query($actorScopeLinkParameters)) ?>"
+                                    <?= $compactScope === 'actor' ? 'aria-current="page"' : '' ?>
+                                >Selected actor</a>
+                                <a
+                                    href="/measurements.php?<?= collectionStewardEscape(http_build_query($groupScopeLinkParameters)) ?>"
+                                    <?= $compactScope === 'group' ? 'aria-current="page"' : '' ?>
+                                >Production cast</a>
+                            </div>
+                        <?php endif; ?>
                     </div>
 
-                    <?php if ($viewMode === 'compact'): ?>
+                    <?php if ($viewMode === 'compact' && $compactScope === 'actor'): ?>
                         <form method="get" class="actor-session-toggle" id="actor-session-toggle">
                             <input type="hidden" name="session_id" value="<?= (int) $selectedSession['measurement_session_id'] ?>">
                             <input type="hidden" name="view" value="compact">
+                            <input type="hidden" name="scope" value="actor">
                             <?php if ($actorSearch !== ''): ?>
                                 <input type="hidden" name="actor_search" value="<?= collectionStewardEscape($actorSearch) ?>">
                             <?php else: ?>
@@ -1973,24 +2294,89 @@ if ($showAllActorSessions) {
                     <?php endif; ?>
                 </div>
 
+                <?php if ($viewMode === 'compact' && $compactScope === 'group'): ?>
+                    <form method="get" class="measurement-group-query">
+                        <input type="hidden" name="session_id" value="<?= (int) $selectedSession['measurement_session_id'] ?>">
+                        <input type="hidden" name="view" value="compact">
+                        <input type="hidden" name="scope" value="group">
+                        <?php if ($actorSearch !== ''): ?>
+                            <input type="hidden" name="actor_search" value="<?= collectionStewardEscape($actorSearch) ?>">
+                        <?php else: ?>
+                            <input type="hidden" name="list" value="<?= collectionStewardEscape($listMode) ?>">
+                        <?php endif; ?>
+
+                        <div class="field">
+                            <label for="group_production_id">Production cast</label>
+                            <select id="group_production_id" name="group_production_id" required>
+                                <?php foreach ($productions as $production): ?>
+                                    <option value="<?= (int) $production['id'] ?>" <?= (int) $production['id'] === $groupProductionId ? 'selected' : '' ?>>
+                                        <?= collectionStewardEscape(measurementProductionLabel($production)) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="group_actor_search">Actor name contains</label>
+                            <input
+                                type="search"
+                                id="group_actor_search"
+                                name="group_actor_search"
+                                value="<?= collectionStewardEscape($groupActorSearch) ?>"
+                                placeholder="Optional"
+                            >
+                        </div>
+
+                        <label class="group-all-sessions-toggle">
+                            <input
+                                type="checkbox"
+                                name="all_sessions"
+                                value="1"
+                                <?= $showAllMeasurementSessions ? 'checked' : '' ?>
+                            >
+                            Include all measurement dates
+                        </label>
+
+                        <button type="submit">Display cast</button>
+                    </form>
+                <?php endif; ?>
+
                 <?php if ($viewMode === 'compact'): ?>
                     <section class="compact-measurements" aria-labelledby="compact-measurements-title">
                         <div class="section-heading compact-measurement-heading">
                             <div>
-                                <h3 id="compact-measurements-title">Measurements</h3>
+                                <h3 id="compact-measurements-title">
+                                    <?= $compactScope === 'group' ? 'Cast measurements' : 'Measurements' ?>
+                                </h3>
+                                <?php if ($compactScope === 'group' && $selectedGroupProduction !== null): ?>
+                                    <p class="compact-group-name">
+                                        <?= collectionStewardEscape(measurementProductionLabel($selectedGroupProduction)) ?>
+                                    </p>
+                                <?php endif; ?>
                                 <p class="help">
-                                    Blank means not measured. Select a date to make it the current session; select a value to edit it in Expanded layout.
+                                    Blank means not measured. Select a date to make it the current session; select a value to edit it in Expanded layout. Scroll vertically among actors and horizontally among measurements.
                                 </p>
                             </div>
                             <span class="compact-session-count">
-                                <?= count($compactSessions) ?> session<?= count($compactSessions) === 1 ? '' : 's' ?> shown
+                                <?php if ($compactScope === 'group'): ?>
+                                    <?= $groupActorCount ?> actor<?= $groupActorCount === 1 ? '' : 's' ?> ·
+                                <?php endif; ?>
+                                <?= count($compactSessions) ?> row<?= count($compactSessions) === 1 ? '' : 's' ?> shown
                             </span>
                         </div>
 
-                        <div class="compact-table-scroll" tabindex="0" aria-label="Scrollable actor measurement comparison">
-                            <table class="compact-measurement-table">
+                        <?php if ($compactSessions === []): ?>
+                            <p class="compact-empty-results">
+                                No actors in this production matched the query.
+                            </p>
+                        <?php else: ?>
+                            <div class="compact-table-scroll" tabindex="0" aria-label="Scrollable actor measurement comparison">
+                            <table class="compact-measurement-table <?= $compactScope === 'group' ? 'has-actor-column' : '' ?>">
                                 <thead>
                                     <tr>
+                                        <?php if ($compactScope === 'group'): ?>
+                                            <th scope="col" class="compact-actor-column">Actor</th>
+                                        <?php endif; ?>
                                         <th scope="col" class="compact-session-column">Measurement date</th>
                                         <?php foreach ($compactMeasurementTypes as $measurementType): ?>
                                             <th scope="col">
@@ -2005,49 +2391,87 @@ if ($showAllActorSessions) {
                                 <tbody>
                                     <?php foreach ($compactSessions as $compactSession): ?>
                                         <?php
-                                        $compactSessionId = (int) $compactSession['measurement_session_id'];
-                                        $compactSessionIsCurrent = $compactSessionId
+                                        $compactSessionId = $compactSession['measurement_session_id'] === null
+                                            ? null
+                                            : (int) $compactSession['measurement_session_id'];
+                                        $compactSessionIsCurrent = $compactSessionId !== null
+                                            && $compactSessionId
                                             === (int) $selectedSession['measurement_session_id'];
-                                        $compactSessionLinkParameters = [
-                                            'session_id' => $compactSessionId,
-                                            'view' => 'compact',
-                                        ];
-                                        if ($showAllActorSessions) {
-                                            $compactSessionLinkParameters['all_sessions'] = 1;
-                                        }
-                                        if ($actorSearch !== '') {
-                                            $compactSessionLinkParameters['actor_search'] = $actorSearch;
-                                        } else {
-                                            $compactSessionLinkParameters['list'] = $listMode;
-                                        }
-                                        $expandedCellLinkParameters = [
-                                            'session_id' => $compactSessionId,
-                                            'view' => 'expanded',
-                                        ];
-                                        if ($actorSearch !== '') {
-                                            $expandedCellLinkParameters['actor_search'] = $actorSearch;
-                                        } else {
-                                            $expandedCellLinkParameters['list'] = $listMode;
+                                        $compactActorName = $compactScope === 'group'
+                                            ? (string) $compactSession['actor_name']
+                                            : (string) $selectedSession['actor_name'];
+                                        $compactSessionLinkParameters = null;
+                                        $expandedCellLinkParameters = null;
+
+                                        if ($compactSessionId !== null) {
+                                            $compactSessionLinkParameters = array_merge(
+                                                [
+                                                    'session_id' => $compactSessionId,
+                                                    'view' => 'compact',
+                                                ],
+                                                $compactContextParameters
+                                            );
+                                            $expandedCellLinkParameters = array_merge(
+                                                [
+                                                    'session_id' => $compactSessionId,
+                                                    'view' => 'expanded',
+                                                ],
+                                                $compactContextParameters
+                                            );
+                                            if ($actorSearch !== '') {
+                                                $compactSessionLinkParameters['actor_search'] = $actorSearch;
+                                                $expandedCellLinkParameters['actor_search'] = $actorSearch;
+                                            } else {
+                                                $compactSessionLinkParameters['list'] = $listMode;
+                                                $expandedCellLinkParameters['list'] = $listMode;
+                                            }
                                         }
                                         ?>
                                         <tr class="<?= $compactSessionIsCurrent ? 'is-current' : '' ?> <?= (int) $compactSession['flagged_value_count'] > 0 ? 'has-flagged-values' : '' ?>">
-                                            <th scope="row" class="compact-session-column">
-                                                <a href="/measurements.php?<?= collectionStewardEscape(http_build_query($compactSessionLinkParameters)) ?>">
-                                                    <?= collectionStewardEscape(measurementFormattedDate($compactSession['measured_on'], $compactSession['date_precision'])) ?>
-                                                </a>
-                                                <small>
-                                                    <?= collectionStewardEscape($compactSession['production_name'] ?: 'General fitting') ?>
-                                                    <?= !empty($compactSession['production_year']) ? ' · ' . (int) $compactSession['production_year'] : '' ?>
-                                                </small>
-                                                <?php if ((int) $compactSession['flagged_value_count'] > 0): ?>
-                                                    <span class="compact-row-flag"><?= (int) $compactSession['flagged_value_count'] ?> flagged</span>
-                                                <?php endif; ?>
-                                            </th>
+                                            <?php if ($compactScope === 'group'): ?>
+                                                <th scope="row" class="compact-actor-column">
+                                                    <span><?= collectionStewardEscape($compactSession['actor_name']) ?></span>
+                                                    <?php if (!empty($compactSession['group_characters'])): ?>
+                                                        <small><?= collectionStewardEscape($compactSession['group_characters']) ?></small>
+                                                    <?php endif; ?>
+                                                </th>
+                                                <td class="compact-session-column">
+                                                    <?php if ($compactSessionId === null): ?>
+                                                        <span class="compact-no-session">No measurements recorded</span>
+                                                    <?php else: ?>
+                                                        <a href="/measurements.php?<?= collectionStewardEscape(http_build_query($compactSessionLinkParameters)) ?>">
+                                                            <?= collectionStewardEscape(measurementFormattedDate($compactSession['measured_on'], $compactSession['date_precision'])) ?>
+                                                        </a>
+                                                        <small>
+                                                            <?= collectionStewardEscape($compactSession['production_name'] ?: 'General fitting') ?>
+                                                            <?= !empty($compactSession['production_year']) ? ' · ' . (int) $compactSession['production_year'] : '' ?>
+                                                        </small>
+                                                        <?php if ((int) $compactSession['flagged_value_count'] > 0): ?>
+                                                            <span class="compact-row-flag"><?= (int) $compactSession['flagged_value_count'] ?> flagged</span>
+                                                        <?php endif; ?>
+                                                    <?php endif; ?>
+                                                </td>
+                                            <?php else: ?>
+                                                <th scope="row" class="compact-session-column">
+                                                    <a href="/measurements.php?<?= collectionStewardEscape(http_build_query($compactSessionLinkParameters)) ?>">
+                                                        <?= collectionStewardEscape(measurementFormattedDate($compactSession['measured_on'], $compactSession['date_precision'])) ?>
+                                                    </a>
+                                                    <small>
+                                                        <?= collectionStewardEscape($compactSession['production_name'] ?: 'General fitting') ?>
+                                                        <?= !empty($compactSession['production_year']) ? ' · ' . (int) $compactSession['production_year'] : '' ?>
+                                                    </small>
+                                                    <?php if ((int) $compactSession['flagged_value_count'] > 0): ?>
+                                                        <span class="compact-row-flag"><?= (int) $compactSession['flagged_value_count'] ?> flagged</span>
+                                                    <?php endif; ?>
+                                                </th>
+                                            <?php endif; ?>
 
                                             <?php foreach ($compactMeasurementTypes as $measurementType): ?>
                                                 <?php
                                                 $measurementTypeId = (int) $measurementType['measurement_type_id'];
-                                                $compactValue = $compactValues[$compactSessionId][$measurementTypeId] ?? null;
+                                                $compactValue = $compactSessionId === null
+                                                    ? null
+                                                    : ($compactValues[$compactSessionId][$measurementTypeId] ?? null);
                                                 $compactDisplayValue = $compactValue === null
                                                     ? ''
                                                     : measurementCompactDisplayValue($compactValue);
@@ -2055,19 +2479,24 @@ if ($showAllActorSessions) {
                                                     && (int) $compactValue['needs_review'] === 1;
                                                 $compactValueWasCorrected = $compactValue !== null
                                                     && measurementValueDiffersFromImport($compactValue);
-                                                $compactValueTitle = 'Edit '
-                                                    . $measurementType['name']
-                                                    . ' for '
-                                                    . measurementFormattedDate(
-                                                        $compactSession['measured_on'],
-                                                        $compactSession['date_precision']
-                                                    );
-                                                if ($compactValueWasCorrected) {
-                                                    $compactValueTitle .= '. Original import: '
-                                                        . $compactValue['raw_value'];
-                                                }
-                                                if ($compactValueIsFlagged) {
-                                                    $compactValueTitle .= '. Needs review.';
+                                                $compactValueTitle = '';
+                                                if ($compactValue !== null) {
+                                                    $compactValueTitle = 'Edit '
+                                                        . $measurementType['name']
+                                                        . ' — '
+                                                        . $compactActorName
+                                                        . ', '
+                                                        . measurementFormattedDate(
+                                                            $compactSession['measured_on'],
+                                                            $compactSession['date_precision']
+                                                        );
+                                                    if ($compactValueWasCorrected) {
+                                                        $compactValueTitle .= '. Original import: '
+                                                            . $compactValue['raw_value'];
+                                                    }
+                                                    if ($compactValueIsFlagged) {
+                                                        $compactValueTitle .= '. Needs review.';
+                                                    }
                                                 }
                                                 ?>
                                                 <td class="<?= $compactValueIsFlagged ? 'needs-review' : '' ?> <?= $compactValueWasCorrected ? 'was-corrected' : '' ?>">
@@ -2095,6 +2524,7 @@ if ($showAllActorSessions) {
                                 </tbody>
                             </table>
                         </div>
+                        <?php endif; ?>
 
                         <p class="compact-measurement-legend">
                             <span><strong>!</strong> Needs review</span>
@@ -2315,6 +2745,28 @@ document.querySelectorAll('[data-submit-on-change]').forEach(function (input) {
         input.form.requestSubmit();
     });
 });
+
+const compactTableScroller = document.querySelector('.compact-table-scroll');
+if (compactTableScroller) {
+    const horizontalScrollKey = 'collectionSteward.measurements.scrollLeft';
+    try {
+        const savedHorizontalScroll = Number.parseInt(
+            sessionStorage.getItem(horizontalScrollKey) || '0',
+            10
+        );
+        if (Number.isFinite(savedHorizontalScroll)) {
+            compactTableScroller.scrollLeft = savedHorizontalScroll;
+        }
+        compactTableScroller.addEventListener('scroll', function () {
+            sessionStorage.setItem(
+                horizontalScrollKey,
+                String(compactTableScroller.scrollLeft)
+            );
+        }, { passive: true });
+    } catch (error) {
+        // The table remains scrollable when browser storage is unavailable.
+    }
+}
 </script>
 </body>
 </html>
