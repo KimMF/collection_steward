@@ -151,6 +151,7 @@ button {
 
 input[type="text"],
 input[type="date"],
+input[type="number"],
 input[type="file"],
 input[type="password"],
 input[type="search"],
@@ -639,6 +640,452 @@ section,
     padding-top: 1rem;
 }
 
+.visually-hidden {
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    width: 1px;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+main.measurements-page {
+    max-width: 96rem;
+}
+
+.privacy-label {
+    color: #7a3b20;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    margin: 0 0 0.25rem;
+    text-transform: uppercase;
+}
+
+.measurement-heading h1 {
+    margin-bottom: 0.2rem;
+}
+
+.measurement-heading p:last-child {
+    margin-top: 0;
+}
+
+.measurement-summary {
+    align-items: stretch;
+    background: #173f38;
+    border-radius: 0.55rem;
+    color: #fff;
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) auto;
+    margin: 1.25rem 0;
+    padding: 0.85rem;
+}
+
+.measurement-summary > div {
+    border-left: 1px solid rgba(255, 255, 255, 0.28);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0.2rem 0.8rem;
+}
+
+.measurement-summary > div:first-child {
+    border-left: 0;
+}
+
+.measurement-summary strong {
+    font-size: 1.65rem;
+    line-height: 1;
+}
+
+.measurement-summary span {
+    font-size: 0.88rem;
+    margin-top: 0.3rem;
+}
+
+.measurement-summary .button {
+    align-self: center;
+    background: #fff;
+    color: #173f38;
+}
+
+.measurement-workspace {
+    align-items: start;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(19rem, 0.72fr) minmax(32rem, 2fr);
+}
+
+.measurement-browser,
+.measurement-editor {
+    border: 1px solid #c7c4bc;
+    border-radius: 0.55rem;
+}
+
+.measurement-browser {
+    background: #f8f6f0;
+    overflow: hidden;
+}
+
+.measurement-search {
+    align-items: end;
+    display: grid;
+    gap: 0.55rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0.85rem;
+}
+
+.measurement-search .field {
+    margin: 0;
+}
+
+.measurement-search > a {
+    grid-column: 1 / -1;
+}
+
+.measurement-list-tabs {
+    border-bottom: 1px solid #c7c4bc;
+    border-top: 1px solid #c7c4bc;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+.measurement-list-tabs a {
+    color: #214f45;
+    font-weight: 750;
+    padding: 0.65rem;
+    text-align: center;
+}
+
+.measurement-list-tabs a[aria-current="page"] {
+    background: #dfece7;
+    box-shadow: inset 0 -0.2rem #2f725f;
+}
+
+.measurement-session-list {
+    max-height: 31rem;
+    overflow-y: auto;
+    padding: 0.45rem;
+}
+
+.measurement-session-link {
+    border: 2px solid transparent;
+    border-radius: 0.4rem;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    margin: 0.15rem 0;
+    padding: 0.55rem;
+    text-decoration: none;
+}
+
+.measurement-session-link:hover,
+.measurement-session-link:focus,
+.measurement-session-link.is-current {
+    background: #e7f2ed;
+    border-color: #2f725f;
+    outline: none;
+}
+
+.measurement-session-name {
+    font-weight: 800;
+}
+
+.measurement-session-link small {
+    color: #555;
+}
+
+.measurement-create {
+    border-top: 1px solid #c7c4bc;
+    padding: 0.8rem;
+}
+
+.measurement-create summary,
+.session-details-panel summary {
+    color: #214f45;
+    cursor: pointer;
+    font-size: 1.02rem;
+    font-weight: 800;
+}
+
+.measurement-create form,
+.session-details-panel form {
+    margin-top: 1rem;
+}
+
+.new-actor-fields,
+.session-details-form {
+    display: grid;
+    gap: 0 0.8rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.measurement-editor {
+    background: #fff;
+    min-width: 0;
+    padding: 1rem;
+}
+
+.measurement-empty-state {
+    padding: 4rem 1rem;
+    text-align: center;
+}
+
+.measurement-session-header {
+    align-items: flex-start;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+}
+
+.measurement-session-header h2 {
+    font-size: 1.8rem;
+    margin: 0.35rem 0 0.1rem;
+}
+
+.measurement-session-header p {
+    margin: 0.2rem 0;
+}
+
+.session-reference {
+    color: #666;
+    flex: 0 0 auto;
+    font-size: 0.82rem;
+}
+
+.status-badge,
+.review-flag,
+.flag-count {
+    border-radius: 999px;
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    padding: 0.2rem 0.55rem;
+    text-transform: uppercase;
+}
+
+.status-needs_review,
+.review-flag,
+.flag-count {
+    background: #ffe6a7;
+    color: #694806;
+}
+
+.status-reviewed {
+    background: #d7ede4;
+    color: #174f3f;
+}
+
+.status-unreviewed {
+    background: #e7e4dc;
+    color: #494844;
+}
+
+.session-details-panel {
+    background: #f8f6f0;
+    border: 1px solid #d5d1c8;
+    border-radius: 0.45rem;
+    margin-top: 1rem;
+    padding: 0.85rem;
+}
+
+.session-details-form .session-notes-field {
+    grid-column: 1 / -1;
+}
+
+.session-details-form > button {
+    justify-self: start;
+}
+
+.character-panel,
+.measurement-values-form,
+.finish-review-panel,
+.actor-history {
+    border-top: 1px solid #d5d1c8;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+}
+
+.character-panel h3,
+.measurement-values-form h3,
+.finish-review-panel h3,
+.actor-history h3 {
+    margin-top: 0;
+}
+
+.character-row {
+    align-items: end;
+    display: grid;
+    gap: 0.6rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-top: 0.55rem;
+}
+
+.add-character-row {
+    border-top: 1px dashed #c7c4bc;
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+}
+
+.measurement-value-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+.measurement-value-card {
+    background: #faf9f5;
+    border: 1px solid #d5d1c8;
+    border-radius: 0.45rem;
+    min-width: 0;
+    padding: 0.75rem;
+}
+
+.measurement-value-card.needs-review {
+    background: #fff8e6;
+    border-color: #b9881b;
+    box-shadow: inset 0.25rem 0 #b9881b;
+}
+
+.measurement-value-heading {
+    align-items: center;
+    display: flex;
+    gap: 0.5rem;
+    justify-content: space-between;
+    margin-bottom: 0.4rem;
+}
+
+.measurement-value-heading label {
+    font-weight: 800;
+}
+
+.measurement-input-with-unit {
+    align-items: center;
+    display: grid;
+    gap: 0.45rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.measurement-input-with-unit span {
+    color: #555;
+    font-size: 0.84rem;
+}
+
+.measurement-status-label {
+    color: #555;
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-top: 0.55rem;
+}
+
+.measurement-value-card select {
+    padding: 0.45rem;
+}
+
+.original-value,
+.review-note {
+    font-size: 0.82rem;
+    margin: 0.55rem 0 0;
+    overflow-wrap: anywhere;
+}
+
+.original-value {
+    background: #eeeae1;
+    border-left: 0.2rem solid #777;
+    padding: 0.4rem 0.5rem;
+}
+
+.review-note {
+    color: #6e4c08;
+}
+
+.accept-value,
+.remove-value {
+    align-items: center;
+    display: flex;
+    font-size: 0.82rem;
+    font-weight: 700;
+    gap: 0.4rem;
+    margin-top: 0.65rem;
+}
+
+.accept-value {
+    color: #245f50;
+}
+
+.remove-value {
+    color: #7c2f28;
+}
+
+.accept-value input,
+.remove-value input {
+    height: 1.1rem;
+    width: 1.1rem;
+}
+
+.sticky-save-row {
+    align-items: center;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid #c7c4bc;
+    border-radius: 0.45rem;
+    bottom: 0.5rem;
+    box-shadow: 0 0.3rem 0.8rem rgba(0, 0, 0, 0.12);
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding: 0.65rem;
+    position: sticky;
+    z-index: 2;
+}
+
+.sticky-save-row span {
+    color: #555;
+    font-size: 0.85rem;
+}
+
+.finish-review-panel {
+    background: #edf5f1;
+    border: 1px solid #bdd5cb;
+    border-radius: 0.45rem;
+    padding: 1rem;
+}
+
+.history-list {
+    border: 1px solid #d5d1c8;
+    border-radius: 0.4rem;
+    overflow: hidden;
+}
+
+.history-row {
+    color: inherit;
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: minmax(8rem, 0.8fr) minmax(10rem, 1.4fr) auto;
+    padding: 0.6rem;
+    text-decoration: none;
+}
+
+.history-row + .history-row {
+    border-top: 1px solid #d5d1c8;
+}
+
+.history-row:hover,
+.history-row:focus,
+.history-row.is-current {
+    background: #e7f2ed;
+}
+
+.history-row span:last-child {
+    color: #555;
+    font-size: 0.85rem;
+}
+
 @media (max-width: 35rem) {
     .checkout-card {
         display: block;
@@ -665,8 +1112,18 @@ section,
 @media (max-width: 52rem) {
     .asset-browser-layout,
     .browser-filters,
-    .saved-asset-card {
+    .saved-asset-card,
+    .measurement-workspace {
         grid-template-columns: 1fr;
+    }
+
+    .measurement-summary {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .measurement-summary .button {
+        grid-column: 1 / -1;
+        text-align: center;
     }
 
     .asset-browser-list {
@@ -700,8 +1157,35 @@ section,
     .site-header,
     .page-heading,
     .section-heading,
-    .user-card {
+    .user-card,
+    .measurement-session-header,
+    .sticky-save-row {
         display: block;
+    }
+
+    .measurement-summary,
+    .new-actor-fields,
+    .session-details-form,
+    .history-row {
+        grid-template-columns: 1fr;
+    }
+
+    .measurement-summary > div {
+        border-left: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.28);
+    }
+
+    .measurement-summary > div:first-child {
+        border-top: 0;
+    }
+
+    .measurement-search,
+    .character-row {
+        grid-template-columns: 1fr;
+    }
+
+    .sticky-save-row button {
+        margin-top: 0.6rem;
     }
 
     .sign-out-form {

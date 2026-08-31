@@ -84,6 +84,7 @@ function collectionStewardUserCan(array $user, string $capability): bool
         'admin' => [
             'intake',
             'checkout',
+            'measurements',
             'manage_assets',
             'manage_users',
             'manage_vocabulary',
@@ -91,6 +92,7 @@ function collectionStewardUserCan(array $user, string $capability): bool
         'steward' => [
             'intake',
             'checkout',
+            'measurements',
             'manage_assets',
             'manage_vocabulary',
         ],

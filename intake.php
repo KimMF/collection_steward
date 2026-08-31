@@ -561,7 +561,7 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Intake — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260825-4">
+    <link rel="stylesheet" href="/app.css?v=20260828-1">
 </head>
 <body>
 <main class="intake-page">
@@ -570,6 +570,9 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
         <a href="/intake.php" aria-current="page">Intake</a>
         <?php if (collectionStewardUserCan($currentUser, 'checkout')): ?>
             <a href="/checkout.php">Production checkout</a>
+        <?php endif; ?>
+        <?php if (collectionStewardUserCan($currentUser, 'measurements')): ?>
+            <a href="/measurements.php">Measurements</a>
         <?php endif; ?>
         <?php if (collectionStewardUserCan($currentUser, 'manage_vocabulary')): ?>
             <a href="/vocabulary.php">Vocabulary</a>

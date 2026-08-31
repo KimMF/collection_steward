@@ -1,3 +1,8 @@
+# Private actor and measurement data
+/private-imports/
+016_import_legacy_actor_measurements.sql
+all-character-measurements-std.ods
+
 # OS
 .DS_Store
 Thumbs.db

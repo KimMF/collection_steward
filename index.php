@@ -43,6 +43,7 @@ $canManageUsers = false;
 $canManageVocabulary = false;
 $canUseIntake = false;
 $canUseCheckout = false;
+$canUseMeasurements = false;
 $loginError = null;
 $errorMessage = null;
 $assetId = null;
@@ -115,6 +116,10 @@ try {
         );
         $canUseIntake = collectionStewardUserCan($currentUser, 'intake');
         $canUseCheckout = collectionStewardUserCan($currentUser, 'checkout');
+        $canUseMeasurements = collectionStewardUserCan(
+            $currentUser,
+            'measurements'
+        );
         $csrfToken = collectionStewardCsrfToken();
     }
 
@@ -451,7 +456,7 @@ if (!is_string($assetBrowserJson)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260825-4">
+    <link rel="stylesheet" href="/app.css?v=20260828-1">
 </head>
 <body>
 <main>
@@ -478,6 +483,9 @@ if (!is_string($assetBrowserJson)) {
             <?php endif; ?>
             <?php if ($canUseCheckout): ?>
                 <a href="/checkout.php">Production checkout</a>
+            <?php endif; ?>
+            <?php if ($canUseMeasurements): ?>
+                <a href="/measurements.php">Measurements</a>
             <?php endif; ?>
             <?php if ($canManageVocabulary): ?>
                 <a href="/vocabulary.php">Vocabulary</a>

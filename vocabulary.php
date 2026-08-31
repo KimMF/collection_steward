@@ -314,7 +314,7 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vocabulary review — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260825-4">
+    <link rel="stylesheet" href="/app.css?v=20260828-1">
 </head>
 <body>
 <main>
@@ -322,6 +322,9 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
         <a href="/">View assets</a>
         <a href="/intake.php">Intake</a>
         <a href="/checkout.php">Production checkout</a>
+        <?php if (collectionStewardUserCan($currentUser, 'measurements')): ?>
+            <a href="/measurements.php">Measurements</a>
+        <?php endif; ?>
         <a href="/vocabulary.php" aria-current="page">Vocabulary</a>
         <?php if (collectionStewardUserCan($currentUser, 'manage_users')): ?>
             <a href="/users.php">Users</a>

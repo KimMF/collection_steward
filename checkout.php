@@ -484,7 +484,7 @@ if ($productionId !== null) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Production checkout — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260825-4">
+    <link rel="stylesheet" href="/app.css?v=20260828-1">
 </head>
 <body>
 <main>
@@ -492,6 +492,9 @@ if ($productionId !== null) {
         <a href="/">View assets</a>
         <a href="/intake.php">Intake</a>
         <a href="/checkout.php" aria-current="page">Production checkout</a>
+        <?php if (collectionStewardUserCan($currentUser, 'measurements')): ?>
+            <a href="/measurements.php">Measurements</a>
+        <?php endif; ?>
         <?php if (collectionStewardUserCan($currentUser, 'manage_vocabulary')): ?>
             <a href="/vocabulary.php">Vocabulary</a>
         <?php endif; ?>
