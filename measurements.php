@@ -94,6 +94,48 @@ function measurementInputValue(array $measurement): string
         : '';
 }
 
+function measurementCompactDisplayValue(array $measurement): string
+{
+    if (($measurement['value_status'] ?? '') === 'not_applicable') {
+        return 'N/A';
+    }
+
+    return measurementInputValue($measurement);
+}
+
+function measurementValueDiffersFromImport(array $measurement): bool
+{
+    if (($measurement['source_import_cell_id'] ?? null) === null) {
+        return false;
+    }
+
+    $rawValue = trim((string) ($measurement['raw_value'] ?? ''));
+    $displayValue = measurementCompactDisplayValue($measurement);
+
+    if (($measurement['value_kind'] ?? '') === 'number') {
+        $numericRawValue = str_replace(',', '', $rawValue);
+        if (is_numeric($numericRawValue)
+            && ($measurement['numeric_value'] ?? null) !== null
+        ) {
+            return abs(
+                (float) $numericRawValue
+                - (float) $measurement['numeric_value']
+            ) > 0.00001;
+        }
+    }
+
+    return $rawValue !== $displayValue;
+}
+
+function measurementCompactUnit(?string $unit): string
+{
+    return match ($unit) {
+        'inches' => 'in',
+        'pounds' => 'lb',
+        default => (string) $unit,
+    };
+}
+
 function measurementActorLabel(array $person): string
 {
     $firstName = is_string($person['first_name'] ?? null)
@@ -501,7 +543,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header(
                     'Location: /measurements.php?session_id='
                     . $newSessionId
-                    . '&session_created=1'
+                    . '&session_created=1&view=expanded'
                 );
                 exit;
             }
@@ -1275,6 +1317,30 @@ if (!in_array($listMode, ['review', 'recent'], true)) {
     $listMode = 'review';
 }
 
+$requestedViewMode = measurementText($_GET, 'view');
+$savedViewMode = is_string($_COOKIE['collection_steward_measurement_view'] ?? null)
+    ? $_COOKIE['collection_steward_measurement_view']
+    : '';
+
+if (in_array($requestedViewMode, ['compact', 'expanded'], true)) {
+    $viewMode = $requestedViewMode;
+    setcookie('collection_steward_measurement_view', $viewMode, [
+        'expires' => time() + (86400 * 365),
+        'path' => '/',
+        'secure' => !empty($_SERVER['HTTPS'])
+            && $_SERVER['HTTPS'] !== 'off',
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+} elseif (in_array($savedViewMode, ['compact', 'expanded'], true)) {
+    $viewMode = $savedViewMode;
+} else {
+    $viewMode = 'expanded';
+}
+
+$showAllActorSessions = $viewMode === 'compact'
+    && measurementText($_GET, 'all_sessions') === '1';
+
 $pendingSessionCount = (int) $connection->query(
     "SELECT COUNT(*)
      FROM measurement_sessions AS pending_session
@@ -1369,6 +1435,9 @@ $selectedSession = null;
 $selectedMeasurements = [];
 $selectedRoles = [];
 $actorHistory = [];
+$compactMeasurementTypes = [];
+$compactSessions = [];
+$compactValues = [];
 
 if ($requestedSessionId !== null) {
     $selectedSession = measurementSession($connection, $requestedSessionId);
@@ -1429,7 +1498,8 @@ if ($requestedSessionId !== null) {
                 ms.review_status,
                 pr.name AS production_name,
                 pr.production_year,
-                COUNT(mv.id) AS measurement_count
+                COUNT(mv.id) AS measurement_count,
+                COALESCE(SUM(mv.needs_review), 0) AS flagged_value_count
              FROM measurement_sessions AS ms
              LEFT JOIN productions AS pr
                 ON pr.id = ms.production_id
@@ -1443,13 +1513,85 @@ if ($requestedSessionId !== null) {
                 ms.review_status,
                 pr.name,
                 pr.production_year
-             ORDER BY ms.measured_on DESC, ms.id DESC
-             LIMIT 50'
+             ORDER BY ms.measured_on DESC, ms.id DESC'
         );
         $historyStatement->execute([
             'person_id' => (int) $selectedSession['person_id'],
         ]);
         $actorHistory = $historyStatement->fetchAll();
+
+        if ($viewMode === 'compact') {
+            $compactTypeStatement = $connection->prepare(
+                'SELECT
+                    mt.id AS measurement_type_id,
+                    mt.code,
+                    mt.name,
+                    mt.value_kind,
+                    mt.unit,
+                    mt.display_order
+                 FROM measurement_types AS mt
+                 WHERE mt.is_active = 1
+                    OR EXISTS (
+                        SELECT 1
+                        FROM measurement_values AS actor_value
+                        JOIN measurement_sessions AS actor_session
+                           ON actor_session.id = actor_value.measurement_session_id
+                        WHERE actor_value.measurement_type_id = mt.id
+                          AND actor_session.person_id = :person_id
+                    )
+                 ORDER BY mt.display_order, mt.name'
+            );
+            $compactTypeStatement->execute([
+                'person_id' => (int) $selectedSession['person_id'],
+            ]);
+            $compactMeasurementTypes = $compactTypeStatement->fetchAll();
+
+            $compactSessions = $showAllActorSessions
+                ? $actorHistory
+                : array_values(array_filter(
+                    $actorHistory,
+                    static fn (array $historySession): bool =>
+                        (int) $historySession['measurement_session_id']
+                        === $requestedSessionId
+                ));
+
+            $compactValueSql =
+                'SELECT
+                    mv.measurement_session_id,
+                    mv.measurement_type_id,
+                    mt.value_kind,
+                    mv.raw_value,
+                    mv.numeric_value,
+                    mv.text_value,
+                    mv.value_status,
+                    mv.needs_review,
+                    mv.source_import_cell_id
+                 FROM measurement_values AS mv
+                 JOIN measurement_sessions AS ms
+                    ON ms.id = mv.measurement_session_id
+                 JOIN measurement_types AS mt
+                    ON mt.id = mv.measurement_type_id
+                 WHERE ms.person_id = :person_id';
+            $compactValueParameters = [
+                'person_id' => (int) $selectedSession['person_id'],
+            ];
+
+            if (!$showAllActorSessions) {
+                $compactValueSql .=
+                    ' AND mv.measurement_session_id = :measurement_session_id';
+                $compactValueParameters['measurement_session_id'] =
+                    $requestedSessionId;
+            }
+
+            $compactValueStatement = $connection->prepare($compactValueSql);
+            $compactValueStatement->execute($compactValueParameters);
+
+            foreach ($compactValueStatement->fetchAll() as $compactValue) {
+                $compactValues[(int) $compactValue['measurement_session_id']][
+                    (int) $compactValue['measurement_type_id']
+                ] = $compactValue;
+            }
+        }
     }
 }
 
@@ -1489,6 +1631,45 @@ $venueStatement = $connection->query(
 );
 $venues = $venueStatement->fetchAll();
 
+$reviewListLinkParameters = [
+    'list' => 'review',
+    'view' => $viewMode,
+];
+$recentListLinkParameters = [
+    'list' => 'recent',
+    'view' => $viewMode,
+];
+$clearSearchLinkParameters = [
+    'list' => 'review',
+    'view' => $viewMode,
+];
+if ($showAllActorSessions) {
+    $reviewListLinkParameters['all_sessions'] = 1;
+    $recentListLinkParameters['all_sessions'] = 1;
+    $clearSearchLinkParameters['all_sessions'] = 1;
+}
+
+$compactViewLinkParameters = [
+    'view' => 'compact',
+];
+$expandedViewLinkParameters = [
+    'view' => 'expanded',
+];
+if ($requestedSessionId !== null) {
+    $compactViewLinkParameters['session_id'] = $requestedSessionId;
+    $expandedViewLinkParameters['session_id'] = $requestedSessionId;
+}
+if ($actorSearch !== '') {
+    $compactViewLinkParameters['actor_search'] = $actorSearch;
+    $expandedViewLinkParameters['actor_search'] = $actorSearch;
+} else {
+    $compactViewLinkParameters['list'] = $listMode;
+    $expandedViewLinkParameters['list'] = $listMode;
+}
+if ($showAllActorSessions) {
+    $compactViewLinkParameters['all_sessions'] = 1;
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1496,7 +1677,7 @@ $venues = $venueStatement->fetchAll();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Actor measurements — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260828-1">
+    <link rel="stylesheet" href="/app.css?v=20260831-1">
 </head>
 <body>
 <main class="measurements-page">
@@ -1555,9 +1736,13 @@ $venues = $venueStatement->fetchAll();
         <a class="button" href="#new-session">Record a new fitting</a>
     </div>
 
-    <div class="measurement-workspace">
+    <div class="measurement-workspace <?= $viewMode === 'compact' ? 'is-compact-view' : 'is-expanded-view' ?>">
         <aside class="measurement-browser" aria-label="Find measurement sessions">
             <form method="get" class="measurement-search">
+                <input type="hidden" name="view" value="<?= collectionStewardEscape($viewMode) ?>">
+                <?php if ($showAllActorSessions): ?>
+                    <input type="hidden" name="all_sessions" value="1">
+                <?php endif; ?>
                 <div class="field">
                     <label for="actor_search">Find an actor</label>
                     <input
@@ -1570,13 +1755,13 @@ $venues = $venueStatement->fetchAll();
                 </div>
                 <button type="submit">Search</button>
                 <?php if ($actorSearch !== ''): ?>
-                    <a href="/measurements.php">Clear</a>
+                    <a href="/measurements.php?<?= collectionStewardEscape(http_build_query($clearSearchLinkParameters)) ?>">Clear</a>
                 <?php endif; ?>
             </form>
 
             <div class="measurement-list-tabs" aria-label="Session lists">
-                <a href="/measurements.php?list=review" <?= $listMode === 'review' && $actorSearch === '' ? 'aria-current="page"' : '' ?>>Needs review</a>
-                <a href="/measurements.php?list=recent" <?= $listMode === 'recent' && $actorSearch === '' ? 'aria-current="page"' : '' ?>>Recent</a>
+                <a href="/measurements.php?<?= collectionStewardEscape(http_build_query($reviewListLinkParameters)) ?>" <?= $listMode === 'review' && $actorSearch === '' ? 'aria-current="page"' : '' ?>>Needs review</a>
+                <a href="/measurements.php?<?= collectionStewardEscape(http_build_query($recentListLinkParameters)) ?>" <?= $listMode === 'recent' && $actorSearch === '' ? 'aria-current="page"' : '' ?>>Recent</a>
             </div>
 
             <div class="measurement-session-list">
@@ -1589,7 +1774,11 @@ $venues = $venueStatement->fetchAll();
                         <?php
                         $sessionLinkParameters = [
                             'session_id' => (int) $sessionChoice['measurement_session_id'],
+                            'view' => $viewMode,
                         ];
+                        if ($showAllActorSessions) {
+                            $sessionLinkParameters['all_sessions'] = 1;
+                        }
                         if ($actorSearch !== '') {
                             $sessionLinkParameters['actor_search'] = $actorSearch;
                         } else {
@@ -1747,6 +1936,173 @@ $venues = $venueStatement->fetchAll();
                     <span class="session-reference">Session <?= (int) $selectedSession['measurement_session_id'] ?></span>
                 </header>
 
+                <div class="measurement-view-controls">
+                    <div class="measurement-view-switch" aria-label="Measurement layout">
+                        <span>Layout</span>
+                        <a
+                            href="/measurements.php?<?= collectionStewardEscape(http_build_query($compactViewLinkParameters)) ?>"
+                            <?= $viewMode === 'compact' ? 'aria-current="page"' : '' ?>
+                        >Compact</a>
+                        <a
+                            href="/measurements.php?<?= collectionStewardEscape(http_build_query($expandedViewLinkParameters)) ?>"
+                            <?= $viewMode === 'expanded' ? 'aria-current="page"' : '' ?>
+                        >Expanded</a>
+                    </div>
+
+                    <?php if ($viewMode === 'compact'): ?>
+                        <form method="get" class="actor-session-toggle" id="actor-session-toggle">
+                            <input type="hidden" name="session_id" value="<?= (int) $selectedSession['measurement_session_id'] ?>">
+                            <input type="hidden" name="view" value="compact">
+                            <?php if ($actorSearch !== ''): ?>
+                                <input type="hidden" name="actor_search" value="<?= collectionStewardEscape($actorSearch) ?>">
+                            <?php else: ?>
+                                <input type="hidden" name="list" value="<?= collectionStewardEscape($listMode) ?>">
+                            <?php endif; ?>
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    name="all_sessions"
+                                    value="1"
+                                    <?= $showAllActorSessions ? 'checked' : '' ?>
+                                    data-submit-on-change
+                                >
+                                Show all measurement dates for this actor
+                            </label>
+                            <noscript><button type="submit" class="secondary">Apply</button></noscript>
+                        </form>
+                    <?php endif; ?>
+                </div>
+
+                <?php if ($viewMode === 'compact'): ?>
+                    <section class="compact-measurements" aria-labelledby="compact-measurements-title">
+                        <div class="section-heading compact-measurement-heading">
+                            <div>
+                                <h3 id="compact-measurements-title">Measurements</h3>
+                                <p class="help">
+                                    Blank means not measured. Select a date to make it the current session; select a value to edit it in Expanded layout.
+                                </p>
+                            </div>
+                            <span class="compact-session-count">
+                                <?= count($compactSessions) ?> session<?= count($compactSessions) === 1 ? '' : 's' ?> shown
+                            </span>
+                        </div>
+
+                        <div class="compact-table-scroll" tabindex="0" aria-label="Scrollable actor measurement comparison">
+                            <table class="compact-measurement-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col" class="compact-session-column">Measurement date</th>
+                                        <?php foreach ($compactMeasurementTypes as $measurementType): ?>
+                                            <th scope="col">
+                                                <span><?= collectionStewardEscape($measurementType['name']) ?></span>
+                                                <?php if (!empty($measurementType['unit'])): ?>
+                                                    <small>(<?= collectionStewardEscape(measurementCompactUnit($measurementType['unit'])) ?>)</small>
+                                                <?php endif; ?>
+                                            </th>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($compactSessions as $compactSession): ?>
+                                        <?php
+                                        $compactSessionId = (int) $compactSession['measurement_session_id'];
+                                        $compactSessionIsCurrent = $compactSessionId
+                                            === (int) $selectedSession['measurement_session_id'];
+                                        $compactSessionLinkParameters = [
+                                            'session_id' => $compactSessionId,
+                                            'view' => 'compact',
+                                        ];
+                                        if ($showAllActorSessions) {
+                                            $compactSessionLinkParameters['all_sessions'] = 1;
+                                        }
+                                        if ($actorSearch !== '') {
+                                            $compactSessionLinkParameters['actor_search'] = $actorSearch;
+                                        } else {
+                                            $compactSessionLinkParameters['list'] = $listMode;
+                                        }
+                                        $expandedCellLinkParameters = [
+                                            'session_id' => $compactSessionId,
+                                            'view' => 'expanded',
+                                        ];
+                                        if ($actorSearch !== '') {
+                                            $expandedCellLinkParameters['actor_search'] = $actorSearch;
+                                        } else {
+                                            $expandedCellLinkParameters['list'] = $listMode;
+                                        }
+                                        ?>
+                                        <tr class="<?= $compactSessionIsCurrent ? 'is-current' : '' ?> <?= (int) $compactSession['flagged_value_count'] > 0 ? 'has-flagged-values' : '' ?>">
+                                            <th scope="row" class="compact-session-column">
+                                                <a href="/measurements.php?<?= collectionStewardEscape(http_build_query($compactSessionLinkParameters)) ?>">
+                                                    <?= collectionStewardEscape(measurementFormattedDate($compactSession['measured_on'], $compactSession['date_precision'])) ?>
+                                                </a>
+                                                <small>
+                                                    <?= collectionStewardEscape($compactSession['production_name'] ?: 'General fitting') ?>
+                                                    <?= !empty($compactSession['production_year']) ? ' · ' . (int) $compactSession['production_year'] : '' ?>
+                                                </small>
+                                                <?php if ((int) $compactSession['flagged_value_count'] > 0): ?>
+                                                    <span class="compact-row-flag"><?= (int) $compactSession['flagged_value_count'] ?> flagged</span>
+                                                <?php endif; ?>
+                                            </th>
+
+                                            <?php foreach ($compactMeasurementTypes as $measurementType): ?>
+                                                <?php
+                                                $measurementTypeId = (int) $measurementType['measurement_type_id'];
+                                                $compactValue = $compactValues[$compactSessionId][$measurementTypeId] ?? null;
+                                                $compactDisplayValue = $compactValue === null
+                                                    ? ''
+                                                    : measurementCompactDisplayValue($compactValue);
+                                                $compactValueIsFlagged = $compactValue !== null
+                                                    && (int) $compactValue['needs_review'] === 1;
+                                                $compactValueWasCorrected = $compactValue !== null
+                                                    && measurementValueDiffersFromImport($compactValue);
+                                                $compactValueTitle = 'Edit '
+                                                    . $measurementType['name']
+                                                    . ' for '
+                                                    . measurementFormattedDate(
+                                                        $compactSession['measured_on'],
+                                                        $compactSession['date_precision']
+                                                    );
+                                                if ($compactValueWasCorrected) {
+                                                    $compactValueTitle .= '. Original import: '
+                                                        . $compactValue['raw_value'];
+                                                }
+                                                if ($compactValueIsFlagged) {
+                                                    $compactValueTitle .= '. Needs review.';
+                                                }
+                                                ?>
+                                                <td class="<?= $compactValueIsFlagged ? 'needs-review' : '' ?> <?= $compactValueWasCorrected ? 'was-corrected' : '' ?>">
+                                                    <?php if ($compactValue === null || $compactDisplayValue === ''): ?>
+                                                        <span class="visually-hidden">Not measured</span>
+                                                    <?php else: ?>
+                                                        <a
+                                                            class="compact-value-link"
+                                                            href="/measurements.php?<?= collectionStewardEscape(http_build_query($expandedCellLinkParameters)) ?>#measurement-card-<?= $measurementTypeId ?>"
+                                                            title="<?= collectionStewardEscape($compactValueTitle) ?>"
+                                                        >
+                                                            <span><?= collectionStewardEscape($compactDisplayValue) ?></span>
+                                                            <?php if ($compactValueIsFlagged): ?>
+                                                                <span class="compact-value-marker flag" aria-label="Needs review">!</span>
+                                                            <?php endif; ?>
+                                                            <?php if ($compactValueWasCorrected): ?>
+                                                                <span class="compact-value-marker corrected" aria-label="Differs from original import">*</span>
+                                                            <?php endif; ?>
+                                                        </a>
+                                                    <?php endif; ?>
+                                                </td>
+                                            <?php endforeach; ?>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <p class="compact-measurement-legend">
+                            <span><strong>!</strong> Needs review</span>
+                            <span><strong>*</strong> Differs from original import</span>
+                        </p>
+                    </section>
+                <?php else: ?>
+
                 <details class="session-details-panel">
                     <summary>Edit actor, production, date, or notes</summary>
                     <form method="post" class="session-details-form">
@@ -1859,7 +2215,7 @@ $venues = $venueStatement->fetchAll();
                                 ? 'not_applicable'
                                 : 'recorded';
                             ?>
-                            <article class="measurement-value-card <?= $isFlagged ? 'needs-review' : '' ?>">
+                            <article id="measurement-card-<?= $measurementTypeId ?>" class="measurement-value-card <?= $isFlagged ? 'needs-review' : '' ?>">
                                 <div class="measurement-value-heading">
                                     <label for="measurement_<?= $measurementTypeId ?>"><?= collectionStewardEscape($measurement['name']) ?></label>
                                     <?php if ($isFlagged): ?>
@@ -1948,9 +2304,17 @@ $venues = $venueStatement->fetchAll();
                         <?php endforeach; ?>
                     </div>
                 </section>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
 </main>
+<script>
+document.querySelectorAll('[data-submit-on-change]').forEach(function (input) {
+    input.addEventListener('change', function () {
+        input.form.requestSubmit();
+    });
+});
+</script>
 </body>
 </html>

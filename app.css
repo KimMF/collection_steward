@@ -719,6 +719,10 @@ main.measurements-page {
     grid-template-columns: minmax(19rem, 0.72fr) minmax(32rem, 2fr);
 }
 
+.measurement-workspace.is-compact-view {
+    grid-template-columns: minmax(15rem, 0.5fr) minmax(32rem, 3fr);
+}
+
 .measurement-browser,
 .measurement-editor {
     border: 1px solid #c7c4bc;
@@ -850,6 +854,73 @@ main.measurements-page {
     margin: 0.2rem 0;
 }
 
+.measurement-view-controls {
+    align-items: center;
+    background: #f8f6f0;
+    border: 1px solid #d5d1c8;
+    border-radius: 0.45rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding: 0.5rem 0.65rem;
+}
+
+.measurement-view-switch {
+    align-items: center;
+    display: flex;
+    flex: 0 0 auto;
+}
+
+.measurement-view-switch > span {
+    color: #555;
+    font-size: 0.8rem;
+    font-weight: 800;
+    margin-right: 0.5rem;
+    text-transform: uppercase;
+}
+
+.measurement-view-switch a {
+    border: 1px solid #7d968d;
+    color: #214f45;
+    font-size: 0.88rem;
+    font-weight: 800;
+    padding: 0.38rem 0.65rem;
+    text-decoration: none;
+}
+
+.measurement-view-switch a:first-of-type {
+    border-radius: 0.35rem 0 0 0.35rem;
+}
+
+.measurement-view-switch a:last-of-type {
+    border-left: 0;
+    border-radius: 0 0.35rem 0.35rem 0;
+}
+
+.measurement-view-switch a[aria-current="page"] {
+    background: #245f50;
+    color: #fff;
+}
+
+.actor-session-toggle {
+    margin: 0;
+}
+
+.actor-session-toggle label {
+    align-items: center;
+    cursor: pointer;
+    display: flex;
+    font-size: 0.88rem;
+    font-weight: 750;
+    gap: 0.4rem;
+}
+
+.actor-session-toggle input {
+    height: 1.1rem;
+    width: 1.1rem;
+}
+
 .session-reference {
     color: #666;
     flex: 0 0 auto;
@@ -904,7 +975,8 @@ main.measurements-page {
 .character-panel,
 .measurement-values-form,
 .finish-review-panel,
-.actor-history {
+.actor-history,
+.compact-measurements {
     border-top: 1px solid #d5d1c8;
     margin-top: 1.5rem;
     padding-top: 1rem;
@@ -913,8 +985,187 @@ main.measurements-page {
 .character-panel h3,
 .measurement-values-form h3,
 .finish-review-panel h3,
-.actor-history h3 {
+.actor-history h3,
+.compact-measurements h3 {
     margin-top: 0;
+}
+
+.compact-measurement-heading {
+    align-items: end;
+    margin-bottom: 0.65rem;
+}
+
+.compact-measurement-heading .help {
+    margin-bottom: 0;
+}
+
+.compact-session-count {
+    color: #555;
+    flex: 0 0 auto;
+    font-size: 0.82rem;
+    font-weight: 750;
+}
+
+.compact-table-scroll {
+    border: 1px solid #bdb9af;
+    border-radius: 0.4rem;
+    max-height: 68vh;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+
+.compact-table-scroll:focus {
+    box-shadow: 0 0 0 0.2rem rgba(47, 114, 95, 0.2);
+    outline: 2px solid #2f725f;
+    outline-offset: 1px;
+}
+
+.compact-measurement-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.82rem;
+    line-height: 1.15;
+    min-width: max-content;
+    width: 100%;
+}
+
+.compact-measurement-table th,
+.compact-measurement-table td {
+    border-bottom: 1px solid #d5d1c8;
+    border-right: 1px solid #dfdcd4;
+    min-width: 5.8rem;
+    padding: 0.35rem 0.4rem;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.compact-measurement-table thead th {
+    background: #eeeae1;
+    color: #30302d;
+    font-weight: 800;
+    max-width: 7rem;
+    position: sticky;
+    top: 0;
+    white-space: normal;
+    z-index: 3;
+}
+
+.compact-measurement-table thead th small {
+    color: #666;
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 650;
+    margin-top: 0.12rem;
+}
+
+.compact-measurement-table tbody tr:last-child th,
+.compact-measurement-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.compact-measurement-table th:last-child,
+.compact-measurement-table td:last-child {
+    border-right: 0;
+}
+
+.compact-measurement-table .compact-session-column {
+    background: #faf9f5;
+    left: 0;
+    max-width: 12rem;
+    min-width: 10.5rem;
+    position: sticky;
+    text-align: left;
+    z-index: 2;
+}
+
+.compact-measurement-table thead .compact-session-column {
+    background: #e5e0d5;
+    z-index: 5;
+}
+
+.compact-measurement-table tbody tr.is-current th,
+.compact-measurement-table tbody tr.is-current td {
+    background: #e7f2ed;
+}
+
+.compact-measurement-table tbody tr.is-current .compact-session-column {
+    box-shadow: inset 0.25rem 0 #2f725f;
+}
+
+.compact-session-column > a {
+    color: #174f3f;
+    display: block;
+    font-weight: 800;
+}
+
+.compact-session-column > small,
+.compact-row-flag {
+    display: block;
+    margin-top: 0.18rem;
+}
+
+.compact-session-column > small {
+    color: #5b5a55;
+    font-size: 0.72rem;
+    font-weight: 500;
+}
+
+.compact-row-flag {
+    color: #694806;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.compact-measurement-table td.needs-review {
+    background: #fff4d8;
+}
+
+.compact-value-link {
+    align-items: center;
+    border-radius: 0.25rem;
+    color: #252522;
+    display: flex;
+    font-size: 0.9rem;
+    font-weight: 750;
+    gap: 0.15rem;
+    justify-content: center;
+    min-height: 1.75rem;
+    padding: 0.12rem;
+    text-decoration: none;
+}
+
+.compact-value-link:hover,
+.compact-value-link:focus {
+    background: #dbece5;
+    outline: 2px solid #2f725f;
+}
+
+.compact-value-marker {
+    font-size: 0.75rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.compact-value-marker.flag {
+    color: #7b5300;
+}
+
+.compact-value-marker.corrected {
+    color: #245f50;
+}
+
+.compact-measurement-legend {
+    color: #555;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    gap: 0.4rem 1rem;
+    margin: 0.55rem 0 0;
+}
+
+.compact-measurement-legend strong {
+    color: #3c5f55;
 }
 
 .character-row {
@@ -949,6 +1200,11 @@ main.measurements-page {
     background: #fff8e6;
     border-color: #b9881b;
     box-shadow: inset 0.25rem 0 #b9881b;
+}
+
+.measurement-value-card:target {
+    border-color: #2f725f;
+    box-shadow: 0 0 0 0.25rem rgba(47, 114, 95, 0.2);
 }
 
 .measurement-value-heading {
@@ -1033,15 +1289,12 @@ main.measurements-page {
     background: rgba(255, 255, 255, 0.96);
     border: 1px solid #c7c4bc;
     border-radius: 0.45rem;
-    bottom: 0.5rem;
-    box-shadow: 0 0.3rem 0.8rem rgba(0, 0, 0, 0.12);
+    box-shadow: none;
     display: flex;
     gap: 1rem;
     justify-content: space-between;
     margin-top: 1rem;
-    padding: 0.65rem;
-    position: sticky;
-    z-index: 2;
+    padding: 0.5rem 0.65rem;
 }
 
 .sticky-save-row span {
@@ -1117,6 +1370,10 @@ main.measurements-page {
         grid-template-columns: 1fr;
     }
 
+    .measurement-workspace.is-compact-view {
+        grid-template-columns: 1fr;
+    }
+
     .measurement-summary {
         grid-template-columns: 1fr 1fr;
     }
@@ -1159,8 +1416,13 @@ main.measurements-page {
     .section-heading,
     .user-card,
     .measurement-session-header,
+    .measurement-view-controls,
     .sticky-save-row {
         display: block;
+    }
+
+    .actor-session-toggle {
+        margin-top: 0.65rem;
     }
 
     .measurement-summary,
