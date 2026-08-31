@@ -49,6 +49,31 @@ $errorMessage = null;
 $assetId = null;
 $csrfToken = null;
 
+$requestedAssetListMode = is_string($_GET['asset_view'] ?? null)
+    ? $_GET['asset_view']
+    : '';
+$savedAssetListMode = is_string(
+    $_COOKIE['collection_steward_asset_list_view'] ?? null
+)
+    ? $_COOKIE['collection_steward_asset_list_view']
+    : '';
+
+if (in_array($requestedAssetListMode, ['compact', 'expanded'], true)) {
+    $assetListMode = $requestedAssetListMode;
+    setcookie('collection_steward_asset_list_view', $assetListMode, [
+        'expires' => time() + (86400 * 365),
+        'path' => '/',
+        'secure' => !empty($_SERVER['HTTPS'])
+            && $_SERVER['HTTPS'] !== 'off',
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+} elseif (in_array($savedAssetListMode, ['compact', 'expanded'], true)) {
+    $assetListMode = $savedAssetListMode;
+} else {
+    $assetListMode = 'expanded';
+}
+
 $strikeActionChoices = [
     'Launder',
     'Repair',
@@ -456,7 +481,7 @@ if (!is_string($assetBrowserJson)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260828-1">
+    <link rel="stylesheet" href="/app.css?v=20260831-3">
 </head>
 <body>
 <main>
@@ -528,7 +553,26 @@ if (!is_string($assetBrowserJson)) {
                     <h2 id="asset-browser-title">Browse assets</h2>
                     <p>Scroll through the list. The preview changes after you pause on an item.</p>
                 </div>
-                <p id="asset-result-count" class="result-count" aria-live="polite"></p>
+                <div class="asset-browser-heading-actions">
+                    <p id="asset-result-count" class="result-count" aria-live="polite"></p>
+                    <form method="get" action="/#asset-browser-title" class="asset-list-mode-form">
+                        <?php if ($assetId !== null): ?>
+                            <input type="hidden" name="asset_id" value="<?= $assetId ?>">
+                        <?php endif; ?>
+                        <input type="hidden" name="asset_view" value="expanded">
+                        <label>
+                            <input
+                                type="checkbox"
+                                name="asset_view"
+                                value="compact"
+                                <?= $assetListMode === 'compact' ? 'checked' : '' ?>
+                                data-submit-on-change
+                            >
+                            Compact list (names only)
+                        </label>
+                        <noscript><button type="submit" class="secondary">Apply layout</button></noscript>
+                    </form>
+                </div>
             </div>
 
             <div class="browser-filters">
@@ -550,7 +594,7 @@ if (!is_string($assetBrowserJson)) {
             </div>
 
             <div class="asset-browser-layout">
-                <div id="asset-browser-list" class="asset-browser-list" aria-label="Assets grouped by type">
+                <div id="asset-browser-list" class="asset-browser-list <?= $assetListMode === 'compact' ? 'is-compact' : 'is-expanded' ?>" aria-label="Assets grouped by type">
                     <?php foreach ($assetsByType as $typeName => $typeAssets): ?>
                         <section class="asset-type-group" data-type="<?= collectionStewardEscape(strtolower($typeName)) ?>">
                             <h3><?= collectionStewardEscape($typeName) ?></h3>
@@ -574,17 +618,21 @@ if (!is_string($assetBrowserJson)) {
                                     data-asset-id="<?= (int) $assetChoice['id'] ?>"
                                     data-search="<?= collectionStewardEscape($searchText) ?>"
                                 >
-                                    <?php if (!empty($assetChoice['file_path'])): ?>
-                                        <img src="<?= collectionStewardEscape($assetChoice['file_path']) ?>" alt="" class="asset-list-thumbnail">
-                                    <?php else: ?>
-                                        <span class="asset-list-placeholder" aria-hidden="true">No photo</span>
-                                    <?php endif; ?>
-                                    <span>
-                                        <strong><?= collectionStewardEscape($assetChoice['display_label']) ?></strong>
-                                        <?php if (!empty($assetChoice['size_description'])): ?>
-                                            <small>Size <?= collectionStewardEscape($assetChoice['size_description']) ?></small>
+                                    <?php if ($assetListMode === 'expanded'): ?>
+                                        <?php if (!empty($assetChoice['file_path'])): ?>
+                                            <img src="<?= collectionStewardEscape($assetChoice['file_path']) ?>" alt="" class="asset-list-thumbnail">
+                                        <?php else: ?>
+                                            <span class="asset-list-placeholder" aria-hidden="true">No photo</span>
                                         <?php endif; ?>
-                                    </span>
+                                        <span>
+                                            <strong><?= collectionStewardEscape($assetChoice['display_label']) ?></strong>
+                                            <?php if (!empty($assetChoice['size_description'])): ?>
+                                                <small>Size <?= collectionStewardEscape($assetChoice['size_description']) ?></small>
+                                            <?php endif; ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <strong><?= collectionStewardEscape($assetChoice['display_label']) ?></strong>
+                                    <?php endif; ?>
                                 </a>
                             <?php endforeach; ?>
                         </section>
@@ -803,6 +851,12 @@ if (!is_string($assetBrowserJson)) {
         const noAssetResults = document.getElementById('no-asset-results');
         let previewedAssetId = null;
         let scrollTimer = null;
+
+        document.querySelectorAll('[data-submit-on-change]').forEach(function (input) {
+            input.addEventListener('change', function () {
+                input.form.requestSubmit();
+            });
+        });
 
         const setOptionalPreviewValue = function (rowId, valueId, value) {
             const row = document.getElementById(rowId);
