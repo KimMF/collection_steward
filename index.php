@@ -71,7 +71,7 @@ if (in_array($requestedAssetListMode, ['compact', 'expanded'], true)) {
 } elseif (in_array($savedAssetListMode, ['compact', 'expanded'], true)) {
     $assetListMode = $savedAssetListMode;
 } else {
-    $assetListMode = 'expanded';
+    $assetListMode = 'compact';
 }
 
 $strikeActionChoices = [
