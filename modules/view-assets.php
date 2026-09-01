@@ -497,7 +497,7 @@ if (!is_string($assetBrowserJson)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260831-3">
+    <link rel="stylesheet" href="/app.css?v=20260901-2">
 </head>
 <body>
 <main>
@@ -565,12 +565,11 @@ if (!is_string($assetBrowserJson)) {
     <?php else: ?>
         <section class="asset-browser" aria-labelledby="asset-browser-title">
             <div class="section-heading">
-                <div>
-                    <h2 id="asset-browser-title">Browse assets</h2>
-                    <p>Scroll through the list. The preview changes after you pause on an item.</p>
-                </div>
+                <h2 id="asset-browser-title" aria-live="polite">
+                    Scroll through <?= count($assetChoices) ?>
+                    <?= count($assetChoices) === 1 ? 'asset' : 'assets' ?>
+                </h2>
                 <div class="asset-browser-heading-actions">
-                    <p id="asset-result-count" class="result-count" aria-live="polite"></p>
                     <form method="get" action="/#asset-browser-title" class="asset-list-mode-form">
                         <?php if ($assetId !== null): ?>
                             <input type="hidden" name="asset_id" value="<?= $assetId ?>">
@@ -593,7 +592,7 @@ if (!is_string($assetBrowserJson)) {
 
             <div class="browser-filters">
                 <div class="field">
-                    <label for="asset-search">Search assets</label>
+                    <label for="asset-search" class="visually-hidden">Search assets</label>
                     <input type="search" id="asset-search" placeholder="Name, ID, type, wearer, size, color, length, or attribute" autocomplete="off">
                 </div>
                 <div class="field">
@@ -662,15 +661,10 @@ if (!is_string($assetBrowserJson)) {
                     <h3 id="preview-name"></h3>
                     <dl class="asset-facts">
                         <div><dt>Type</dt><dd id="preview-type"></dd></div>
-                        <div id="preview-wearer-row"><dt>Wearer</dt><dd id="preview-wearer"></dd></div>
                         <div id="preview-size-row"><dt>Size</dt><dd id="preview-size"></dd></div>
-                        <div id="preview-color-row"><dt>Color</dt><dd id="preview-color"></dd></div>
-                        <div id="preview-length-row"><dt>Length</dt><dd id="preview-length"></dd></div>
                         <div><dt>Status</dt><dd id="preview-status"></dd></div>
                         <div id="preview-location-row"><dt>Location</dt><dd id="preview-location"></dd></div>
-                        <div id="preview-tags-row"><dt>Tags</dt><dd id="preview-tags"></dd></div>
                     </dl>
-                    <p id="preview-description"></p>
                     <a id="preview-full-link" class="button" href="#asset-record">Open full record</a>
                 </aside>
             </div>
@@ -863,7 +857,7 @@ if (!is_string($assetBrowserJson)) {
         const assetGroups = Array.from(document.querySelectorAll('.asset-type-group'));
         const assetSearch = document.getElementById('asset-search');
         const typeFilter = document.getElementById('type-filter');
-        const resultCount = document.getElementById('asset-result-count');
+        const assetBrowserTitle = document.getElementById('asset-browser-title');
         const noAssetResults = document.getElementById('no-asset-results');
         let previewedAssetId = null;
         let scrollTimer = null;
@@ -893,15 +887,10 @@ if (!is_string($assetBrowserJson)) {
             document.getElementById('preview-status').textContent = String(asset.availability_status)
                 .replaceAll('_', ' ')
                 .replace(/^./, function (letter) { return letter.toUpperCase(); });
-            document.getElementById('preview-description').textContent = asset.description || '';
             document.getElementById('preview-full-link').href = '/?asset_id=' + asset.id + '#asset-record';
 
             setOptionalPreviewValue('preview-size-row', 'preview-size', asset.size_description);
-            setOptionalPreviewValue('preview-wearer-row', 'preview-wearer', asset.wearer);
-            setOptionalPreviewValue('preview-color-row', 'preview-color', asset.color);
-            setOptionalPreviewValue('preview-length-row', 'preview-length', asset.length_name);
             setOptionalPreviewValue('preview-location-row', 'preview-location', asset.storage_location);
-            setOptionalPreviewValue('preview-tags-row', 'preview-tags', asset.tags);
 
             const previewPhoto = document.getElementById('preview-photo');
             const previewNoPhoto = document.getElementById('preview-no-photo');
@@ -982,8 +971,8 @@ if (!is_string($assetBrowserJson)) {
                 group.hidden = groupCount === 0;
             });
 
-            resultCount.textContent = visibleCount
-                + (visibleCount === 1 ? ' item' : ' items');
+            assetBrowserTitle.textContent = 'Scroll through ' + visibleCount
+                + (visibleCount === 1 ? ' asset' : ' assets');
             noAssetResults.hidden = visibleCount !== 0;
 
             if (visibleCount > 0) {
