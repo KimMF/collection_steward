@@ -2,6 +2,14 @@
 
 declare(strict_types=1);
 
+/**
+ * Shared Collection Steward infrastructure and domain helpers.
+ *
+ * Functional modules require this file for sessions, database access,
+ * authorization, request protection, output escaping, and asset naming.
+ */
+
+// Session and database infrastructure.
 function startCollectionStewardSession(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -35,6 +43,7 @@ function collectionStewardConnection(): PDO
     );
 }
 
+// Authentication and role capabilities.
 function collectionStewardCurrentUser(
     PDO $connection,
     bool $allowPasswordChangeRequired = false
@@ -129,7 +138,8 @@ function requireCollectionStewardUser(
 function requireCollectionStewardCapability(
     PDO $connection,
     string $capability
-): array {
+): array
+{
     $user = requireCollectionStewardUser($connection);
 
     if (!collectionStewardUserCan($user, $capability)) {
@@ -140,6 +150,7 @@ function requireCollectionStewardCapability(
     return $user;
 }
 
+// Cross-site request protection and safe HTML output.
 function collectionStewardCsrfToken(): string
 {
     if (!isset($_SESSION['csrf_token'])) {
@@ -161,6 +172,7 @@ function collectionStewardEscape(?string $value): string
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
 }
 
+// Asset labels and generated names shared by browsing, intake, and vocabulary.
 function collectionStewardAssetLabel(int $assetId, ?string $name): string
 {
     $descriptiveName = is_string($name) && trim($name) !== ''
@@ -176,7 +188,8 @@ function collectionStewardBuildAssetName(
     ?string $length,
     ?string $assetType,
     ?string $size
-): string {
+): string
+{
     $nameParts = [];
 
     foreach ([$wearer, $primaryColor, $length, $assetType] as $namePart) {
@@ -222,7 +235,8 @@ function collectionStewardRefreshAssetName(
     PDO $connection,
     int $assetId,
     string $updatedBy
-): void {
+): void
+{
     $assetStatement = $connection->prepare(
         'SELECT
             a.size_description,
