@@ -344,8 +344,18 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
         <a href="/change-password.php">Password</a>
     </nav>
 
-    <h1>Vocabulary review</h1>
-    <p>Review “Not listed” suggestions without allowing intake users to change the approved lists directly.</p>
+    <div class="page-heading">
+        <div>
+            <h1>Vocabulary review</h1>
+            <p>Review “Not listed” suggestions without allowing intake users to change the approved lists directly.</p>
+        </div>
+        <div class="user-session">
+            <p>Signed in as <strong><?= collectionStewardEscape($currentUser['display_name']) ?></strong></p>
+            <form method="post" action="/">
+                <button type="submit" name="action" value="logout" class="secondary">Sign out</button>
+            </form>
+        </div>
+    </div>
 
     <?php if ($notice !== null): ?>
         <div class="notice" role="status"><?= collectionStewardEscape($notice) ?></div>

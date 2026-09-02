@@ -1293,6 +1293,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
+            if ($action === 'requeue_review') {
+                $requeueReviewStatement = $connection->prepare(
+                    'UPDATE measurement_sessions
+                     SET review_status = \'needs_review\'
+                     WHERE id = :measurement_session_id'
+                );
+                $requeueReviewStatement->execute([
+                    'measurement_session_id' => $postedSessionId,
+                ]);
+
+                header(
+                    'Location: /measurements.php?session_id='
+                    . $postedSessionId
+                    . '&review_requeued=1'
+                );
+                exit;
+            }
+
             throw new DomainException('Choose a valid Measurements action.');
         } catch (DomainException $error) {
             if ($connection->inTransaction()) {
@@ -1323,6 +1341,8 @@ if (isset($_GET['session_created'])) {
     $notice = 'The character name was saved.';
 } elseif (isset($_GET['review_finished'])) {
     $notice = 'The session review is complete.';
+} elseif (isset($_GET['review_requeued'])) {
+    $notice = 'The session was returned to the review queue.';
 }
 
 // Resolve list filters and the saved layout. New visitors start in Compact
@@ -2001,7 +2021,7 @@ $groupScopeLinkParameters['scope'] = 'group';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Actor measurements — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260831-2">
+    <link rel="stylesheet" href="/app.css?v=20260902-4">
 </head>
 <body>
 <main class="measurements-page">
@@ -2023,7 +2043,7 @@ $groupScopeLinkParameters['scope'] = 'group';
         <div>
             <p class="privacy-label">Private costuming records</p>
             <h1>Actor measurements</h1>
-            <p>Review imported records, retain dated history, and record new fittings.</p>
+            <p>Review imported records, retain dated history, and record new measurement sessions.</p>
         </div>
         <div class="user-session">
             <p>Signed in as <strong><?= collectionStewardEscape($currentUser['display_name']) ?></strong></p>
@@ -2057,7 +2077,7 @@ $groupScopeLinkParameters['scope'] = 'group';
             <strong><?= $pendingValueCount ?></strong>
             <span>individual values flagged</span>
         </div>
-        <a class="button" href="#new-session">Record a new fitting</a>
+        <a class="button" href="#new-session">Record a new measurement session</a>
     </div>
 
     <div class="measurement-workspace <?= $viewMode === 'compact' ? 'is-compact-view' : 'is-expanded-view' ?>">
@@ -2135,7 +2155,7 @@ $groupScopeLinkParameters['scope'] = 'group';
             </div>
 
             <details class="measurement-create" id="new-session" <?= isset($_GET['production_created']) ? 'open' : '' ?>>
-                <summary>Record a new fitting</summary>
+                <summary>Record a new measurement session</summary>
                 <p class="help">Choose an actor already on file, or leave that list blank and enter a new actor.</p>
                 <form method="post">
                     <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
@@ -2273,7 +2293,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                         <div class="measurement-view-switch" aria-label="Measurement layout">
                             <span>Layout</span>
                             <a
-                                href="/measurements.php?<?= collectionStewardEscape(http_build_query($compactViewLinkParameters)) ?>"
+                                href="/measurements.php?<?= collectionStewardEscape(http_build_query($compactViewLinkParameters)) ?>#compact-measurements-title"
                                 <?= $viewMode === 'compact' ? 'aria-current="page"' : '' ?>
                             >Compact</a>
                             <a
@@ -2286,11 +2306,11 @@ $groupScopeLinkParameters['scope'] = 'group';
                             <div class="measurement-view-switch measurement-scope-switch" aria-label="Compact table scope">
                                 <span>Display</span>
                                 <a
-                                    href="/measurements.php?<?= collectionStewardEscape(http_build_query($actorScopeLinkParameters)) ?>"
+                                    href="/measurements.php?<?= collectionStewardEscape(http_build_query($actorScopeLinkParameters)) ?>#compact-measurements-title"
                                     <?= $compactScope === 'actor' ? 'aria-current="page"' : '' ?>
                                 >Selected actor</a>
                                 <a
-                                    href="/measurements.php?<?= collectionStewardEscape(http_build_query($groupScopeLinkParameters)) ?>"
+                                    href="/measurements.php?<?= collectionStewardEscape(http_build_query($groupScopeLinkParameters)) ?>#compact-measurements-title"
                                     <?= $compactScope === 'group' ? 'aria-current="page"' : '' ?>
                                 >Production cast</a>
                             </div>
@@ -2298,7 +2318,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                     </div>
 
                     <?php if ($viewMode === 'compact' && $compactScope === 'actor'): ?>
-                        <form method="get" class="actor-session-toggle" id="actor-session-toggle">
+                        <form method="get" action="/measurements.php#compact-measurements-title" class="actor-session-toggle" id="actor-session-toggle">
                             <input type="hidden" name="session_id" value="<?= (int) $selectedSession['measurement_session_id'] ?>">
                             <input type="hidden" name="view" value="compact">
                             <input type="hidden" name="scope" value="actor">
@@ -2323,7 +2343,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                 </div>
 
                 <?php if ($viewMode === 'compact' && $compactScope === 'group'): ?>
-                    <form method="get" class="measurement-group-query">
+                    <form method="get" action="/measurements.php#compact-measurements-title" class="measurement-group-query">
                         <input type="hidden" name="session_id" value="<?= (int) $selectedSession['measurement_session_id'] ?>">
                         <input type="hidden" name="view" value="compact">
                         <input type="hidden" name="scope" value="group">
@@ -2365,7 +2385,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                             Include all measurement dates
                         </label>
 
-                        <button type="submit">Display cast</button>
+                        <button type="submit">Update</button>
                     </form>
                 <?php endif; ?>
 
@@ -2385,13 +2405,59 @@ $groupScopeLinkParameters['scope'] = 'group';
                                     Blank means not measured. Select a date to make it the current session; select a value to edit it in Expanded layout. Scroll vertically among actors and horizontally among measurements.
                                 </p>
                             </div>
-                            <span class="compact-session-count">
-                                <?php if ($compactScope === 'group'): ?>
-                                    <?= $groupActorCount ?> actor<?= $groupActorCount === 1 ? '' : 's' ?> ·
+                            <div class="compact-heading-actions">
+                                <span class="compact-session-count">
+                                    <?php if ($compactScope === 'group'): ?>
+                                        <?= $groupActorCount ?> actor<?= $groupActorCount === 1 ? '' : 's' ?> ·
+                                    <?php endif; ?>
+                                    <?= count($compactSessions) ?> row<?= count($compactSessions) === 1 ? '' : 's' ?> shown
+                                </span>
+                                <?php if ($compactSessions !== []): ?>
+                                    <div class="measurement-print-actions" aria-label="Printable worksheets">
+                                        <button type="button" class="secondary" data-print-worksheet="current">Print current measurements</button>
+                                        <button type="button" class="secondary" data-print-worksheet="blank">Print blank worksheet</button>
+                                    </div>
                                 <?php endif; ?>
-                                <?= count($compactSessions) ?> row<?= count($compactSessions) === 1 ? '' : 's' ?> shown
-                            </span>
+                            </div>
                         </div>
+
+                        <header class="print-worksheet-heading">
+                            <h1>
+                                <span class="print-current-label">Current measurements</span>
+                                <span class="print-blank-label">Blank measurement worksheet</span>
+                            </h1>
+                            <p>
+                                <?php if ($compactScope === 'group' && $selectedGroupProduction !== null): ?>
+                                    <?= collectionStewardEscape(measurementProductionLabel($selectedGroupProduction)) ?>
+                                <?php else: ?>
+                                    <?= collectionStewardEscape($selectedSession['actor_name']) ?>
+                                <?php endif; ?>
+                            </p>
+                        </header>
+
+                        <?php if ($compactSessions !== []): ?>
+                            <details class="measurement-print-columns">
+                                <summary>Choose columns to print</summary>
+                                <p class="help">Actor and measurement date are included automatically. Choose the measurement columns for both printable worksheets.</p>
+                                <div class="measurement-print-column-actions">
+                                    <button type="button" class="secondary" data-print-columns="all">Select all</button>
+                                    <button type="button" class="secondary" data-print-columns="none">Clear all</button>
+                                </div>
+                                <div class="measurement-print-column-list">
+                                    <?php foreach ($compactMeasurementTypes as $measurementColumnIndex => $measurementType): ?>
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                value="<?= (int) $measurementColumnIndex ?>"
+                                                data-print-column
+                                                checked
+                                            >
+                                            <?= collectionStewardEscape($measurementType['name']) ?>
+                                        </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            </details>
+                        <?php endif; ?>
 
                         <?php if ($compactSessions === []): ?>
                             <p class="compact-empty-results">
@@ -2559,6 +2625,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                             <span><strong>*</strong> Differs from original import</span>
                         </p>
                     </section>
+                    <div id="print-worksheet-pages" class="print-worksheet-pages" aria-hidden="true"></div>
                 <?php else: ?>
 
                 <details class="session-details-panel">
@@ -2733,6 +2800,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                     </div>
                 </form>
 
+                <?php if ($selectedSession['review_status'] === 'needs_review'): ?>
                 <section class="finish-review-panel">
                     <h3>Finish this review</h3>
                     <?php if ((int) $selectedSession['flagged_value_count'] > 0): ?>
@@ -2749,6 +2817,18 @@ $groupScopeLinkParameters['scope'] = 'group';
                         </form>
                     <?php endif; ?>
                 </section>
+                <?php else: ?>
+                <section class="finish-review-panel">
+                    <h3>Review this session again</h3>
+                    <p>Return this session to the review queue if its details or measurements need another review.</p>
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
+                        <input type="hidden" name="action" value="requeue_review">
+                        <input type="hidden" name="measurement_session_id" value="<?= (int) $selectedSession['measurement_session_id'] ?>">
+                        <button type="submit" class="secondary">Return to review queue</button>
+                    </form>
+                </section>
+                <?php endif; ?>
 
                 <section class="actor-history" aria-labelledby="actor-history-title">
                     <h3 id="actor-history-title"><?= collectionStewardEscape($selectedSession['actor_name']) ?>’s measurement history</h3>
@@ -2772,6 +2852,163 @@ document.querySelectorAll('[data-submit-on-change]').forEach(function (input) {
     input.addEventListener('change', function () {
         input.form.requestSubmit();
     });
+});
+
+const buildPrintableWorksheetPages = function (isBlankWorksheet) {
+    const sourceTable = document.querySelector(
+        '.compact-table-scroll .compact-measurement-table'
+    );
+    const printPages = document.getElementById('print-worksheet-pages');
+    const sourceHeading = document.querySelector(
+        '.compact-measurements .print-worksheet-heading'
+    );
+
+    if (!sourceTable || !printPages || !sourceHeading) {
+        return;
+    }
+
+    const sourceHeaders = Array.from(
+        sourceTable.querySelectorAll('thead tr > th')
+    );
+    const sourceRows = Array.from(sourceTable.querySelectorAll('tbody > tr'));
+    const fixedColumnCount = sourceTable.classList.contains('has-actor-column')
+        ? 2
+        : 1;
+    const measurementsPerPage = 7;
+    const selectedMeasurementColumns = Array.from(
+        document.querySelectorAll('[data-print-column]:checked')
+    ).map(function (input) {
+        return fixedColumnCount + Number.parseInt(input.value, 10);
+    }).filter(function (columnIndex) {
+        return Number.isInteger(columnIndex)
+            && columnIndex >= fixedColumnCount
+            && columnIndex < sourceHeaders.length;
+    });
+
+    if (selectedMeasurementColumns.length === 0) {
+        window.alert('Choose at least one measurement column to print.');
+        return false;
+    }
+
+    const pageCount = Math.ceil(
+        selectedMeasurementColumns.length / measurementsPerPage
+    );
+
+    printPages.replaceChildren();
+
+    for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+        const pageMeasurementColumns = selectedMeasurementColumns.slice(
+            pageIndex * measurementsPerPage,
+            (pageIndex + 1) * measurementsPerPage
+        );
+        const columnIndexes = [];
+
+        for (let index = 0; index < fixedColumnCount; index += 1) {
+            columnIndexes.push(index);
+        }
+        columnIndexes.push(...pageMeasurementColumns);
+
+        const page = document.createElement('section');
+        page.className = 'print-worksheet-page';
+
+        const heading = sourceHeading.cloneNode(true);
+        const firstMeasurementName =
+            sourceHeaders[pageMeasurementColumns[0]].textContent.trim();
+        const lastMeasurementName =
+            sourceHeaders[
+                pageMeasurementColumns[pageMeasurementColumns.length - 1]
+            ].textContent.trim();
+        const range = document.createElement('p');
+        range.className = 'print-measurement-range';
+        range.textContent = 'Page '
+            + (pageIndex + 1)
+            + ' of '
+            + pageCount
+            + ' — '
+            + firstMeasurementName
+            + ' through '
+            + lastMeasurementName;
+        heading.appendChild(range);
+        page.appendChild(heading);
+
+        const table = document.createElement('table');
+        table.className = sourceTable.className + ' print-chunk-table';
+        const tableHead = table.createTHead();
+        const headingRow = tableHead.insertRow();
+        columnIndexes.forEach(function (columnIndex) {
+            headingRow.appendChild(sourceHeaders[columnIndex].cloneNode(true));
+        });
+
+        const tableBody = table.createTBody();
+        sourceRows.forEach(function (sourceRow) {
+            const row = tableBody.insertRow();
+            row.className = sourceRow.className;
+            const sourceCells = Array.from(sourceRow.children);
+            columnIndexes.forEach(function (columnIndex) {
+                row.appendChild(sourceCells[columnIndex].cloneNode(true));
+            });
+        });
+
+        if (isBlankWorksheet) {
+            const minimumBlankRows = 12;
+            for (
+                let rowIndex = sourceRows.length;
+                rowIndex < minimumBlankRows;
+                rowIndex += 1
+            ) {
+                const row = tableBody.insertRow();
+                columnIndexes.forEach(function (columnIndex) {
+                    const sourceCell = sourceRows[0].children[columnIndex];
+                    const cell = document.createElement(
+                        sourceCell.tagName.toLowerCase()
+                    );
+                    if (sourceCell.hasAttribute('scope')) {
+                        cell.setAttribute('scope', sourceCell.getAttribute('scope'));
+                    }
+                    cell.className = sourceCell.className;
+                    cell.innerHTML = '&nbsp;';
+                    row.appendChild(cell);
+                });
+            }
+        }
+
+        page.appendChild(table);
+        printPages.appendChild(page);
+    }
+
+    return true;
+};
+
+document.querySelectorAll('[data-print-columns]').forEach(function (button) {
+    button.addEventListener('click', function () {
+        const shouldSelect = button.dataset.printColumns === 'all';
+        document.querySelectorAll('[data-print-column]').forEach(function (input) {
+            input.checked = shouldSelect;
+        });
+    });
+});
+
+document.querySelectorAll('[data-print-worksheet]').forEach(function (button) {
+    button.addEventListener('click', function () {
+        const isBlankWorksheet = button.dataset.printWorksheet === 'blank';
+        if (!buildPrintableWorksheetPages(isBlankWorksheet)) {
+            return;
+        }
+        document.body.classList.toggle('print-blank-worksheet', isBlankWorksheet);
+        document.body.classList.toggle('print-current-worksheet', !isBlankWorksheet);
+        window.print();
+    });
+});
+
+window.addEventListener('afterprint', function () {
+    document.body.classList.remove(
+        'print-blank-worksheet',
+        'print-current-worksheet'
+    );
+    const printPages = document.getElementById('print-worksheet-pages');
+    if (printPages) {
+        printPages.replaceChildren();
+    }
 });
 
 const compactTableScroller = document.querySelector('.compact-table-scroll');

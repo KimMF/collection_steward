@@ -516,8 +516,17 @@ if ($productionId !== null) {
         <a href="/change-password.php">Password</a>
     </nav>
 
-    <h1>Production checkout</h1>
-    <p>Signed in as <strong><?= collectionStewardEscape($currentUser['display_name']) ?></strong></p>
+    <div class="page-heading">
+        <div>
+            <h1>Production checkout</h1>
+        </div>
+        <div class="user-session">
+            <p>Signed in as <strong><?= collectionStewardEscape($currentUser['display_name']) ?></strong></p>
+            <form method="post" action="/">
+                <button type="submit" name="action" value="logout" class="secondary">Sign out</button>
+            </form>
+        </div>
+    </div>
 
     <?php if ($productions === []): ?>
         <div class="error">No planned or active production is available.</div>
@@ -593,7 +602,7 @@ if ($productionId !== null) {
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <span class="help">The asset must already have a record. Blob items may be added through phpMyAdmin during this pilot.</span>
+                        <span class="help">The asset must already have a Collection Steward record.</span>
                     </div>
 
                     <div class="field">

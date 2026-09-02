@@ -1105,12 +1105,93 @@ main.measurements-page {
     font-weight: 750;
 }
 
+.compact-heading-actions {
+    align-items: flex-end;
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.measurement-print-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: flex-end;
+}
+
+.measurement-print-actions button {
+    font-size: 0.78rem;
+    min-height: 0;
+    padding: 0.4rem 0.55rem;
+}
+
+.print-worksheet-heading {
+    display: none;
+}
+
+.print-worksheet-pages {
+    display: none;
+}
+
+.measurement-print-columns {
+    background: #f8f6f0;
+    border: 1px solid #d5d1c8;
+    border-radius: 0.4rem;
+    margin-bottom: 0.75rem;
+    padding: 0.65rem;
+}
+
+.measurement-print-columns summary {
+    color: #214f45;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.measurement-print-columns .help {
+    margin-bottom: 0.5rem;
+}
+
+.measurement-print-column-actions {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 0.55rem;
+}
+
+.measurement-print-column-actions button {
+    font-size: 0.78rem;
+    min-height: 0;
+    padding: 0.35rem 0.55rem;
+}
+
+.measurement-print-column-list {
+    display: grid;
+    gap: 0.35rem 0.8rem;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.measurement-print-column-list label {
+    align-items: center;
+    display: flex;
+    font-size: 0.85rem;
+    gap: 0.35rem;
+}
+
+.measurement-print-column-list input {
+    flex: 0 0 auto;
+    height: 1rem;
+    width: 1rem;
+}
+
 .compact-table-scroll {
     border: 1px solid #bdb9af;
     border-radius: 0.4rem;
     max-height: 68vh;
     overflow: auto;
     overscroll-behavior: contain;
+    touch-action: pan-x pan-y;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
 }
 
 .compact-table-scroll:focus {
@@ -1644,6 +1725,41 @@ main.measurements-page {
         grid-template-columns: 1fr;
     }
 
+    .compact-heading-actions {
+        align-items: stretch;
+        margin-top: 0.65rem;
+    }
+
+    .measurement-print-actions {
+        justify-content: stretch;
+    }
+
+    .measurement-print-actions button {
+        flex: 1 1 11rem;
+    }
+
+    .compact-measurement-table .compact-actor-column {
+        max-width: 7.5rem;
+        min-width: 7.5rem;
+        width: 7.5rem;
+    }
+
+    .compact-measurement-table .compact-session-column {
+        max-width: 7.25rem;
+        min-width: 7.25rem;
+        width: 7.25rem;
+    }
+
+    .compact-measurement-table.has-actor-column .compact-session-column {
+        left: 7.5rem;
+    }
+
+    .compact-measurement-table th,
+    .compact-measurement-table td {
+        min-width: 5.25rem;
+        padding: 0.3rem;
+    }
+
     .measurement-summary,
     .new-actor-fields,
     .session-details-form,
@@ -1682,4 +1798,150 @@ main.measurements-page {
         text-align: left;
     }
 
+}
+
+@media print {
+    @page {
+        margin: 0.35in;
+        size: landscape;
+    }
+
+    body {
+        background: #fff;
+        color: #000;
+        font-size: 9pt;
+    }
+
+    main.measurements-page {
+        max-width: none;
+        padding: 0;
+    }
+
+    .measurements-page > nav,
+    .measurements-page > .page-heading,
+    .measurement-summary,
+    .measurement-browser,
+    .measurement-session-header,
+    .measurement-view-controls,
+    .measurement-group-query,
+    .compact-measurement-heading,
+    .session-details-panel,
+    .character-panel,
+    .measurement-values-form,
+    .finish-review-panel,
+    .actor-history {
+        display: none !important;
+    }
+
+    .measurement-workspace,
+    .measurement-workspace.is-compact-view {
+        display: block;
+    }
+
+    .measurement-editor {
+        padding: 0;
+    }
+
+    .print-worksheet-heading {
+        display: block;
+        margin-bottom: 0.2in;
+    }
+
+    .print-worksheet-heading h1 {
+        font-size: 16pt;
+        margin: 0;
+    }
+
+    .print-worksheet-heading p {
+        font-size: 11pt;
+        font-weight: 700;
+        margin: 0.05in 0 0;
+    }
+
+    .print-worksheet-heading .print-measurement-range {
+        font-size: 8pt;
+        font-weight: 500;
+        margin-top: 0.04in;
+    }
+
+    .print-blank-label,
+    .print-blank-worksheet .print-current-label {
+        display: none;
+    }
+
+    .print-blank-worksheet .print-blank-label {
+        display: inline;
+    }
+
+    .compact-measurements {
+        display: none !important;
+    }
+
+    .print-worksheet-pages {
+        display: block;
+    }
+
+    .print-worksheet-page {
+        break-after: page;
+        page-break-after: always;
+    }
+
+    .print-worksheet-page:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+
+    .compact-measurement-table {
+        font-size: 8pt;
+        min-width: 100%;
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    .compact-measurement-table th,
+    .compact-measurement-table td {
+        border-bottom: 1px solid #777;
+        border-right: 1px solid #999;
+        min-width: 0;
+        padding: 0.08in 0.04in;
+    }
+
+    .print-chunk-table tbody tr:last-child th,
+    .print-chunk-table tbody tr:last-child td {
+        border-bottom: 1px solid #777;
+    }
+
+    .compact-measurement-table thead th,
+    .compact-measurement-table .compact-actor-column,
+    .compact-measurement-table .compact-session-column,
+    .compact-measurement-table.has-actor-column .compact-session-column {
+        left: auto;
+        max-width: none;
+        min-width: 0;
+        position: static;
+        width: auto;
+    }
+
+    .compact-measurement-table thead {
+        display: table-header-group;
+    }
+
+    .compact-measurement-table tr {
+        break-inside: avoid;
+    }
+
+    .compact-measurement-table a {
+        color: #000;
+        text-decoration: none;
+    }
+
+    .print-blank-worksheet .compact-measurement-table tbody td > *,
+    .print-blank-worksheet .compact-measurement-table tbody .compact-session-column > * {
+        visibility: hidden;
+    }
+
+    .print-blank-worksheet .compact-measurement-table tbody th,
+    .print-blank-worksheet .compact-measurement-table tbody td {
+        height: 0.3in;
+    }
 }
