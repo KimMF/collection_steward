@@ -921,13 +921,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     if (!in_array(
                         $valueStatus,
-                        ['recorded', 'not_applicable'],
+                        ['not_measured', 'recorded', 'not_applicable'],
                         true
                     )) {
                         throw new DomainException(
-                            'Choose Recorded or Not applicable for '
+                            'Choose Not measured, Recorded, or Not applicable for '
                             . $type['name'] . '.'
                         );
+                    }
+
+                    if ($valueStatus === 'not_measured') {
+                        if ($inputValue !== '') {
+                            $valueStatus = 'recorded';
+                        } else {
+                            if ($existingValue !== null) {
+                                $operations[] = [
+                                    'operation' => 'delete',
+                                    'existing' => $existingValue,
+                                ];
+                            }
+                            continue;
+                        }
                     }
 
                     if ($removeValue) {
@@ -2736,9 +2750,10 @@ $groupScopeLinkParameters['scope'] = 'group';
                             $isFlagged = (int) ($measurement['needs_review'] ?? 0) === 1;
                             $inputValue = measurementInputValue($measurement);
                             $valueStatus = $hasValue
-                                && $measurement['value_status'] === 'not_applicable'
-                                ? 'not_applicable'
-                                : 'recorded';
+                                ? ($measurement['value_status'] === 'not_applicable'
+                                    ? 'not_applicable'
+                                    : 'recorded')
+                                : 'not_measured';
                             ?>
                             <article id="measurement-card-<?= $measurementTypeId ?>" class="measurement-value-card <?= $isFlagged ? 'needs-review' : '' ?>">
                                 <div class="measurement-value-heading">
@@ -2763,6 +2778,7 @@ $groupScopeLinkParameters['scope'] = 'group';
 
                                 <label class="measurement-status-label" for="measurement_status_<?= $measurementTypeId ?>">Status</label>
                                 <select id="measurement_status_<?= $measurementTypeId ?>" name="values[<?= $measurementTypeId ?>][status]">
+                                    <option value="not_measured" <?= $valueStatus === 'not_measured' ? 'selected' : '' ?>>Not measured</option>
                                     <option value="recorded" <?= $valueStatus === 'recorded' ? 'selected' : '' ?>>Recorded</option>
                                     <option value="not_applicable" <?= $valueStatus === 'not_applicable' ? 'selected' : '' ?>>Not applicable</option>
                                 </select>

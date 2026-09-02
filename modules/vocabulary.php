@@ -61,6 +61,7 @@ $vocabularies = [
 ];
 
 $errors = [];
+$submittedSuggestionId = null;
 $notice = isset($_GET['resolved'])
     ? 'The vocabulary suggestion was reviewed. The related asset was updated when applicable.'
     : null;
@@ -83,6 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!is_int($suggestionId) || $suggestionId < 1) {
         $errors[] = 'Choose a valid suggestion.';
+    } else {
+        $submittedSuggestionId = $suggestionId;
     }
 
     if (!in_array($action, ['match_existing', 'approve_new', 'dismiss'], true)) {
@@ -362,7 +365,7 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
     <?php endif; ?>
 
     <?php if ($errors !== []): ?>
-        <div class="error" role="alert">
+        <div class="error" id="vocabulary-errors" role="alert">
             <strong>The review was not saved.</strong>
             <ul>
                 <?php foreach ($errors as $error): ?>
@@ -384,11 +387,21 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
                 $options = $optionsByVocabulary[$suggestion['vocabulary_type']] ?? [];
                 ?>
                 <?php if ($configuration !== null): ?>
-                    <article class="suggestion-card">
+                    <article class="suggestion-card" id="suggestion-<?= (int) $suggestion['id'] ?>">
                         <?php if (!empty($suggestion['file_path'])): ?>
                             <img src="<?= collectionStewardEscape($suggestion['file_path']) ?>" alt="" class="suggestion-thumbnail">
                         <?php endif; ?>
                         <div class="suggestion-details">
+                            <?php if ($submittedSuggestionId === (int) $suggestion['id'] && $errors !== []): ?>
+                                <div class="error" role="alert">
+                                    <strong>This suggestion was not changed.</strong>
+                                    <ul>
+                                        <?php foreach ($errors as $error): ?>
+                                            <li><?= collectionStewardEscape($error) ?></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                </div>
+                            <?php endif; ?>
                             <p class="eyebrow"><?= collectionStewardEscape($configuration['label']) ?> suggestion</p>
                             <h2><?= collectionStewardEscape($suggestion['suggested_value']) ?></h2>
                             <p>
@@ -399,7 +412,7 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
                             <?php endif; ?>
 
                             <?php if ($options !== []): ?>
-                                <form method="post" class="suggestion-action">
+                                <form method="post" action="/vocabulary.php#suggestion-<?= (int) $suggestion['id'] ?>" class="suggestion-action">
                                     <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
                                     <input type="hidden" name="suggestion_id" value="<?= (int) $suggestion['id'] ?>">
                                     <div class="field">
@@ -415,7 +428,7 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
                                 </form>
                             <?php endif; ?>
 
-                            <form method="post" class="suggestion-action">
+                            <form method="post" action="/vocabulary.php#suggestion-<?= (int) $suggestion['id'] ?>" class="suggestion-action">
                                 <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
                                 <input type="hidden" name="suggestion_id" value="<?= (int) $suggestion['id'] ?>">
                                 <div class="field">
@@ -431,7 +444,7 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
                                 <button type="submit" name="action" value="approve_new">Approve new option</button>
                             </form>
 
-                            <form method="post" class="suggestion-action" onsubmit="return confirm('Dismiss this suggestion without changing the asset?');">
+                            <form method="post" action="/vocabulary.php#suggestion-<?= (int) $suggestion['id'] ?>" class="suggestion-action" onsubmit="return confirm('Dismiss this suggestion without changing the asset?');">
                                 <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
                                 <input type="hidden" name="suggestion_id" value="<?= (int) $suggestion['id'] ?>">
                                 <button type="submit" name="action" value="dismiss" class="secondary">Dismiss suggestion</button>
