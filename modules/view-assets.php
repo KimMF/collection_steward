@@ -50,6 +50,7 @@ $lastAssetReview = null;
 $latestLifecycleEvent = null;
 $currentUser = null;
 $canManageAssets = false;
+$canManageProductions = false;
 $canManageUsers = false;
 $canManageVocabulary = false;
 $canUseIntake = false;
@@ -157,6 +158,10 @@ try {
         $canManageAssets = collectionStewardUserCan(
             $currentUser,
             'manage_assets'
+        );
+        $canManageProductions = collectionStewardUserCan(
+            $currentUser,
+            'manage_productions'
         );
         $canManageUsers = collectionStewardUserCan(
             $currentUser,
@@ -684,6 +689,9 @@ if (!is_string($assetBrowserJson)) {
             <a href="/" aria-current="page">View assets</a>
             <?php if ($canUseIntake): ?>
                 <a href="/intake.php">Intake</a>
+            <?php endif; ?>
+            <?php if ($canManageProductions): ?>
+                <a href="/productions.php">Productions</a>
             <?php endif; ?>
             <?php if ($canUseCheckout): ?>
                 <a href="/checkout.php">Production checkout</a>

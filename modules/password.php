@@ -106,6 +106,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php if (collectionStewardUserCan($currentUser, 'intake')): ?>
                 <a href="/intake.php">Intake</a>
             <?php endif; ?>
+            <?php if (collectionStewardUserCan($currentUser, 'manage_productions')): ?>
+                <a href="/productions.php">Productions</a>
+            <?php endif; ?>
             <?php if (collectionStewardUserCan($currentUser, 'checkout')): ?>
                 <a href="/checkout.php">Production checkout</a>
             <?php endif; ?>

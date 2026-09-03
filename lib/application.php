@@ -95,6 +95,7 @@ function collectionStewardUserCan(array $user, string $capability): bool
             'checkout',
             'measurements',
             'manage_assets',
+            'manage_productions',
             'manage_users',
             'manage_vocabulary',
         ],
@@ -103,6 +104,7 @@ function collectionStewardUserCan(array $user, string $capability): bool
             'checkout',
             'measurements',
             'manage_assets',
+            'manage_productions',
             'manage_vocabulary',
         ],
         'intake' => [
@@ -170,6 +172,22 @@ function collectionStewardCsrfIsValid(mixed $submittedToken): bool
 function collectionStewardEscape(?string $value): string
 {
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
+}
+
+function collectionStewardProductionStatuses(): array
+{
+    return [
+        'planned' => 'Planned',
+        'active' => 'Active',
+        'completed' => 'Completed',
+        'cancelled' => 'Cancelled',
+    ];
+}
+
+function collectionStewardProductionStatusLabel(string $value): string
+{
+    return collectionStewardProductionStatuses()[$value]
+        ?? ucwords(str_replace('_', ' ', $value));
 }
 
 // Asset retirement hides a record without deleting it. The retirement event

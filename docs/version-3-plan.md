@@ -14,63 +14,63 @@ The starting point for this work is the tagged `v0.2.2` release.
 
 ### 1. Asset review and correction
 
-- [ ] Add an **Assets awaiting review** queue.
-- [ ] Place every newly entered asset in the review queue automatically.
-- [ ] Allow a steward or administrator to send an existing asset back to the
+- [x] Add an **Assets awaiting review** queue.
+- [x] Place every newly entered asset in the review queue automatically.
+- [x] Allow a steward or administrator to send an existing asset back to the
   review queue.
-- [ ] Let an authorized reviewer inspect and record:
+- [x] Let an authorized reviewer inspect and record:
   - smell;
   - stains;
   - damage;
   - wear; and
   - general condition.
-- [ ] Record **Clear**, **Issue found**, or **Not assessed**, with an optional
+- [x] Record **Clear**, **Issue found**, or **Not assessed**, with an optional
   note for each condition category, plus an overall note, reviewer, and review
   date.
-- [ ] Show when the asset was most recently reviewed and by whom.
-- [ ] Allow a steward or administrator to correct user-maintained asset data:
+- [x] Show when the asset was most recently reviewed and by whom.
+- [x] Allow a steward or administrator to correct user-maintained asset data:
   type, wearer, primary color, standardized size, exact label size, length,
   storage location, acquisition information, description, notes, photograph,
   and tags.
-- [ ] Protect permanent identity and history fields from ordinary editing,
+- [x] Protect permanent identity and history fields from ordinary editing,
   including the asset ID, audit timestamps, checkout history, and strike-work
   history.
-- [ ] Allow a steward or administrator to **retire** a physical asset that has
+- [x] Allow a steward or administrator to **retire** a physical asset that has
   left the active collection or a database record that was created in error.
   Record its disposition, effective date, note, and the user who retired it;
   preserve its permanent ID and history.
-- [ ] Offer retirement dispositions of **Discarded**, **Donated or
+- [x] Offer retirement dispositions of **Discarded**, **Donated or
   transferred**, **Returned to owner or lender**, **Sold**, **Lost or
   missing**, and **Other**. Use **Discarded** with an explanatory note when a
   record was created in error and no physical asset existed.
-- [ ] Exclude all retired assets from the normal **View assets** list and from
+- [x] Exclude all retired assets from the normal **View assets** list and from
   checkout by default.
-- [ ] Give authorized users a simple **Include retired assets** checkbox on
+- [x] Give authorized users a simple **Include retired assets** checkbox on
   **View assets**. Retired assets remain hidden whenever the box is unchecked.
-- [ ] Do not provide a separate **Entered in error** status or permanently
+- [x] Do not provide a separate **Entered in error** status or permanently
   delete an established asset record through the web application.
-- [ ] Allow the reviewer to mark the asset reviewed and remove it from the
+- [x] Allow the reviewer to mark the asset reviewed and remove it from the
   queue.
-- [ ] Use the approved simple generated-name format when structured fields are
+- [x] Use the approved simple generated-name format when structured fields are
   saved, for example:
   `Women's black dress — Size: Small (10); Length: Medium`.
-- [ ] Use `Size: Not recorded` when no size is known.
-- [ ] Do not automatically rewrite existing asset names. Regenerate a legacy
+- [x] Use `Size: Not recorded` when no size is known.
+- [x] Do not automatically rewrite existing asset names. Regenerate a legacy
   name when that asset is deliberately reviewed and saved.
 
 ### 2. Production management
 
-- [ ] Add a dedicated **Productions** page so routine production setup does not
+- [x] Add a dedicated **Productions** page so routine production setup does not
   require phpMyAdmin.
-- [ ] Create and edit a production's name, venue, year, opening date, closing
+- [x] Create and edit a production's name, venue, year, opening date, closing
   date, and status.
-- [ ] Create and edit venues through the application.
-- [ ] Manage the cast for a production.
-- [ ] Allow one person to portray more than one character in the same
+- [x] Create and edit venues through the application.
+- [x] Manage the cast for a production.
+- [x] Allow one person to portray more than one character in the same
   production.
-- [ ] Use the same production and cast records in measurements, fittings, and
+- [x] Use the same production and cast records in measurements, fittings, and
   production checkout.
-- [ ] Preserve historical productions rather than deleting them when they are
+- [x] Preserve historical productions rather than deleting them when they are
   no longer active.
 
 ### 3. Production measurement sessions and templates

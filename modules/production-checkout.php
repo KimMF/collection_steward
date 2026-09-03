@@ -219,6 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      FROM production_cast AS pc
                      WHERE pc.id = :cast_id
                        AND pc.production_id = :production_id
+                       AND pc.is_active = 1
                      LIMIT 1'
                 );
                 $validCastStatement->execute([
@@ -437,6 +438,7 @@ if ($productionId !== null) {
          JOIN people AS p
             ON p.id = pc.person_id
          WHERE pc.production_id = :production_id
+           AND pc.is_active = 1
          ORDER BY pc.display_order, pc.id'
     );
     $castStatement->execute([
@@ -508,6 +510,9 @@ if ($productionId !== null) {
     <nav aria-label="Collection Steward">
         <a href="/">View assets</a>
         <a href="/intake.php">Intake</a>
+        <?php if (collectionStewardUserCan($currentUser, 'manage_productions')): ?>
+            <a href="/productions.php">Productions</a>
+        <?php endif; ?>
         <a href="/checkout.php" aria-current="page">Production checkout</a>
         <?php if (collectionStewardUserCan($currentUser, 'measurements')): ?>
             <a href="/measurements.php">Measurements</a>
@@ -676,7 +681,7 @@ if ($productionId !== null) {
         </section>
 
         <details class="setup-panel">
-            <summary>Set up this production's cast</summary>
+            <summary>Manage this production</summary>
             <?php if ($castMembers !== []): ?>
                 <ul>
                     <?php foreach ($castMembers as $castMember): ?>
@@ -687,24 +692,11 @@ if ($productionId !== null) {
                     <?php endforeach; ?>
                 </ul>
             <?php endif; ?>
-
-            <form method="post">
-                <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
-                <input type="hidden" name="action" value="add_cast_member">
-                <input type="hidden" name="production_id" value="<?= (int) $productionId ?>">
-
-                <div class="field">
-                    <label for="actor_name">Actor's name</label>
-                    <input type="text" id="actor_name" name="actor_name" maxlength="150" required>
-                </div>
-
-                <div class="field">
-                    <label for="character_name">Character's name</label>
-                    <input type="text" id="character_name" name="character_name" maxlength="150" required>
-                </div>
-
-                <button type="submit">Add actor and character</button>
-            </form>
+            <p>
+                Add or update cast assignments and production details on the
+                dedicated Productions page.
+            </p>
+            <a class="button secondary" href="/productions.php?production_id=<?= (int) $productionId ?>">Open production management</a>
         </details>
     <?php endif; ?>
 </main>

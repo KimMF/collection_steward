@@ -336,6 +336,9 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
     <nav aria-label="Collection Steward">
         <a href="/">View assets</a>
         <a href="/intake.php">Intake</a>
+        <?php if (collectionStewardUserCan($currentUser, 'manage_productions')): ?>
+            <a href="/productions.php">Productions</a>
+        <?php endif; ?>
         <a href="/checkout.php">Production checkout</a>
         <?php if (collectionStewardUserCan($currentUser, 'measurements')): ?>
             <a href="/measurements.php">Measurements</a>

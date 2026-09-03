@@ -232,6 +232,9 @@ $users = $userStatement->fetchAll();
     <nav aria-label="Collection Steward">
         <a href="/">View assets</a>
         <a href="/intake.php">Intake</a>
+        <?php if (collectionStewardUserCan($currentUser, 'manage_productions')): ?>
+            <a href="/productions.php">Productions</a>
+        <?php endif; ?>
         <a href="/checkout.php">Production checkout</a>
         <a href="/measurements.php">Measurements</a>
         <a href="/asset-review.php">Asset review</a>

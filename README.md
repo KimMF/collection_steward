@@ -13,6 +13,7 @@ application's established URLs. Each entry point loads one functional module:
 | --- | --- |
 | `index.php` | `modules/view-assets.php` |
 | `intake.php` | `modules/intake.php` |
+| `productions.php` | `modules/productions.php` |
 | `checkout.php` | `modules/production-checkout.php` |
 | `measurements.php` | `modules/measurements.php` |
 | `asset-review.php` | `modules/asset-review.php` |
@@ -35,6 +36,9 @@ The agreed Version 3 scope and implementation order are documented in
 
 The Version 3 soft-retirement workflow, deployment order, and smoke test are
 documented in [`docs/asset-retirement.md`](docs/asset-retirement.md).
+
+The Version 3 production, venue, and cast-management workflow is documented in
+[`docs/production-management.md`](docs/production-management.md).
 
 The database-controlled intake fields and vocabulary-review workflow are
 described in

@@ -2042,6 +2042,9 @@ $groupScopeLinkParameters['scope'] = 'group';
     <nav aria-label="Collection Steward">
         <a href="/">View assets</a>
         <a href="/intake.php">Intake</a>
+        <?php if (collectionStewardUserCan($currentUser, 'manage_productions')): ?>
+            <a href="/productions.php">Productions</a>
+        <?php endif; ?>
         <a href="/checkout.php">Production checkout</a>
         <a href="/measurements.php" aria-current="page">Measurements</a>
         <?php if (collectionStewardUserCan($currentUser, 'manage_assets')): ?>
@@ -2235,41 +2238,8 @@ $groupScopeLinkParameters['scope'] = 'group';
 
             <details class="measurement-create">
                 <summary>Add a production or venue</summary>
-                <p class="help">Use this first when the production does not yet appear in the fitting form.</p>
-                <form method="post">
-                    <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
-                    <input type="hidden" name="action" value="create_production">
-
-                    <div class="field">
-                        <label for="production_name">Production name</label>
-                        <input type="text" id="production_name" name="production_name" maxlength="150" value="<?= collectionStewardEscape($newProductionValues['production_name']) ?>" required>
-                    </div>
-                    <div class="field">
-                        <label for="production_year">Production year</label>
-                        <input type="number" id="production_year" name="production_year" min="1900" max="2200" value="<?= collectionStewardEscape($newProductionValues['production_year']) ?>">
-                    </div>
-                    <div class="field">
-                        <label for="venue_id">Existing venue</label>
-                        <select id="venue_id" name="venue_id">
-                            <option value="">No venue selected</option>
-                            <?php foreach ($venues as $venue): ?>
-                                <option value="<?= (int) $venue['id'] ?>" <?= (string) $venue['id'] === $newProductionValues['venue_id'] ? 'selected' : '' ?>>
-                                    <?= collectionStewardEscape($venue['name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="new_venue_name">Or new venue</label>
-                        <input type="text" id="new_venue_name" name="new_venue_name" maxlength="150" value="<?= collectionStewardEscape($newProductionValues['new_venue_name']) ?>">
-                        <span class="help">A new venue name takes precedence over the existing-venue choice.</span>
-                    </div>
-                    <div class="field">
-                        <label for="opening_date">Opening date (optional)</label>
-                        <input type="date" id="opening_date" name="opening_date" value="<?= collectionStewardEscape($newProductionValues['opening_date']) ?>">
-                    </div>
-                    <button type="submit">Add production</button>
-                </form>
+                <p class="help">Create and update productions, venues, and cast assignments in the dedicated workspace.</p>
+                <a class="button secondary" href="/productions.php">Open production management</a>
             </details>
         </aside>
 

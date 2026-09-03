@@ -776,6 +776,179 @@ section,
     flex: 1;
 }
 
+.production-workspace {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: minmax(16rem, 0.7fr) minmax(28rem, 1.3fr);
+    margin-top: 1.5rem;
+}
+
+.production-sidebar,
+.production-editor {
+    border: 1px solid #c7c4bc;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+.production-sidebar {
+    align-self: start;
+    background: #faf9f5;
+}
+
+.production-list {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.production-list-item {
+    border: 2px solid transparent;
+    border-radius: 0.4rem;
+    color: inherit;
+    display: grid;
+    padding: 0.6rem;
+    text-decoration: none;
+}
+
+.production-list-item:hover,
+.production-list-item:focus,
+.production-list-item.is-current {
+    background: #e7f2ed;
+    border-color: #2f725f;
+    outline: none;
+}
+
+.production-list-item span,
+.production-list-item small {
+    color: #555;
+}
+
+.production-create {
+    border-top: 1px solid #d5d1c8;
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+}
+
+.production-create summary,
+.venue-card summary {
+    cursor: pointer;
+    font-weight: 750;
+}
+
+.production-create form,
+.venue-card form {
+    margin-top: 1rem;
+}
+
+.production-record-heading {
+    align-items: flex-start;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+}
+
+.production-record-heading h2 {
+    margin: 0.35rem 0;
+}
+
+.production-record-heading .button-row {
+    justify-content: flex-end;
+    margin-top: 0;
+}
+
+.production-status-planned {
+    background: #e7e4dc;
+    color: #494844;
+}
+
+.production-status-active {
+    background: #d7ede4;
+    color: #174f3f;
+}
+
+.production-status-completed {
+    background: #dfe9f5;
+    color: #244e77;
+}
+
+.production-status-cancelled {
+    background: #f9e8e6;
+    color: #7a2d27;
+}
+
+.production-details-form {
+    max-width: 48rem;
+}
+
+.production-date-grid,
+.venue-form {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.venue-form {
+    align-items: end;
+    grid-template-columns: minmax(14rem, 1fr) minmax(8rem, 0.6fr) auto;
+}
+
+.venue-form .field {
+    margin-bottom: 0;
+}
+
+.cast-management-list,
+.venue-list {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.cast-management-card {
+    align-items: end;
+    border: 1px solid #c7c4bc;
+    border-radius: 0.45rem;
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(9rem, 0.8fr) minmax(12rem, 1.2fr) 5rem auto auto;
+    padding: 0.75rem;
+}
+
+.cast-management-card.is-inactive {
+    background: #f2efeb;
+    opacity: 0.85;
+}
+
+.cast-management-card .field,
+.cast-management-card .confirmation-choice {
+    margin-bottom: 0;
+}
+
+.cast-actor-name {
+    display: grid;
+}
+
+.cast-actor-name small {
+    color: #555;
+}
+
+.venue-management {
+    margin-top: 2rem;
+}
+
+.venue-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 1rem;
+}
+
+.venue-card {
+    border: 1px solid #c7c4bc;
+    border-radius: 0.45rem;
+    padding: 0.75rem;
+}
+
+.venue-card summary small {
+    color: #555;
+    font-weight: 500;
+}
+
 .suggestion-list {
     display: grid;
     gap: 1rem;
@@ -1688,9 +1861,24 @@ main.measurements-page {
     .asset-browser-layout,
     .browser-filters,
     .saved-asset-card,
+    .production-workspace,
     .measurement-workspace,
     .review-field-grid,
     .review-condition-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .production-record-heading {
+        display: block;
+    }
+
+    .production-record-heading .button-row {
+        justify-content: flex-start;
+        margin-top: 1rem;
+    }
+
+    .cast-management-card,
+    .venue-list {
         grid-template-columns: 1fr;
     }
 
@@ -1759,6 +1947,15 @@ main.measurements-page {
         margin-bottom: 0.75rem;
         max-height: 18rem;
         width: 100%;
+    }
+
+    .production-date-grid,
+    .venue-form {
+        grid-template-columns: 1fr;
+    }
+
+    .venue-form .field {
+        margin-bottom: 1rem;
     }
 
     .review-tag-grid {
