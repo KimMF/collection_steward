@@ -356,6 +356,24 @@ button:disabled {
     width: 1.1rem;
 }
 
+.asset-visibility-form {
+    margin: 1rem 0;
+}
+
+.asset-visibility-form label,
+.confirmation-choice {
+    align-items: center;
+    display: flex;
+    font-weight: 700;
+    gap: 0.55rem;
+}
+
+.asset-visibility-form input[type="checkbox"],
+.confirmation-choice input[type="checkbox"] {
+    height: 1.2rem;
+    width: 1.2rem;
+}
+
 .asset-browser-layout {
     display: grid;
     gap: 1rem;
@@ -421,6 +439,16 @@ button:disabled {
 .asset-list-item small {
     color: #555;
     display: block;
+}
+
+.asset-list-item.is-retired {
+    background: #f2efeb;
+}
+
+.retired-marker {
+    color: #8a3f13;
+    font-size: 0.85em;
+    white-space: nowrap;
 }
 
 .asset-browser-list.is-compact {
@@ -575,6 +603,23 @@ button:disabled {
     border-top: 1px solid #d5d1c8;
     margin-top: 1rem;
     padding-top: 1rem;
+}
+
+.retirement-record,
+.retirement-action {
+    background: #f9e8e6;
+    border-left: 0.35rem solid #a33a31;
+    margin-top: 1.5rem;
+    padding: 0.85rem 1rem;
+}
+
+.retirement-record h3,
+.retirement-action h3 {
+    margin-top: 0;
+}
+
+.retirement-action .confirmation-choice {
+    margin: 0 0 1rem;
 }
 
 .empty-results {

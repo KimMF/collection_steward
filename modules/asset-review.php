@@ -121,6 +121,7 @@ $conditionResults = [
 
 $errors = [];
 $reviewedAssetId = assetReviewPositiveInteger($_GET['reviewed'] ?? null);
+$retiredAssetId = assetReviewPositiveInteger($_GET['retired'] ?? null);
 $selectedAssetId = assetReviewPositiveInteger(
     $_POST['asset_id'] ?? $_GET['asset_id'] ?? null
 );
@@ -129,6 +130,55 @@ $submittedTagIds = [];
 $submittedConditions = [];
 $submittedConditionNotes = [];
 $submittedOverallNote = '';
+$retirementDisposition = '';
+$retirementDate = (new DateTimeImmutable('today'))->format('Y-m-d');
+$retirementNote = '';
+
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && ($_POST['action'] ?? '') === 'retire_asset'
+) {
+    $retirementDisposition = assetReviewText(
+        $_POST,
+        'retirement_disposition'
+    );
+    $retirementDate = assetReviewText($_POST, 'retirement_date');
+    $retirementNote = assetReviewText($_POST, 'retirement_note');
+
+    if (!collectionStewardCsrfIsValid($_POST['csrf_token'] ?? null)) {
+        $errors[] = 'The form expired. Refresh the page and try again.';
+    }
+
+    if ($selectedAssetId === null) {
+        $errors[] = 'Choose an asset from the review queue.';
+    }
+
+    if (($_POST['confirm_retirement'] ?? '') !== '1') {
+        $errors[] = 'Confirm that this asset should be retired.';
+    }
+
+    if ($errors === [] && $selectedAssetId !== null) {
+        try {
+            collectionStewardRetireAsset(
+                $connection,
+                $selectedAssetId,
+                $retirementDisposition,
+                $retirementDate,
+                $retirementNote,
+                $currentUser
+            );
+
+            header(
+                'Location: /asset-review.php?retired=' . $selectedAssetId
+            );
+            exit;
+        } catch (DomainException $error) {
+            $errors[] = $error->getMessage();
+        } catch (Throwable $error) {
+            $errors[] = 'The asset could not be retired.';
+        }
+    }
+}
 
 if (
     $_SERVER['REQUEST_METHOD'] === 'POST'
@@ -299,6 +349,7 @@ if (
              FROM assets
              WHERE id = :asset_id
                AND asset_review_status = 'pending'
+               AND collection_status = 'active'
              LIMIT 1"
         );
         $snapshotStatement->execute([
@@ -339,6 +390,7 @@ if (
                  FROM assets
                  WHERE id = :asset_id
                    AND asset_review_status = 'pending'
+                   AND collection_status = 'active'
                  FOR UPDATE"
             );
             $lockStatement->execute([
@@ -598,6 +650,7 @@ $queueStatement = $connection->query(
      LEFT JOIN asset_types AS aty
         ON aty.id = a.asset_type_id
      WHERE a.asset_review_status = 'pending'
+       AND a.collection_status = 'active'
      ORDER BY
         COALESCE(a.asset_review_requested_at, a.created_at),
         a.id"
@@ -654,6 +707,7 @@ if ($selectedAssetId !== null) {
             AND p.is_primary = 1
          WHERE a.id = :asset_id
            AND a.asset_review_status = \'pending\'
+           AND a.collection_status = \'active\'
          LIMIT 1'
     );
     $assetStatement->execute([
@@ -726,7 +780,7 @@ foreach ($conditionFields as $fieldName => $label) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asset review — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260903-1">
+    <link rel="stylesheet" href="/app.css?v=20260903-2">
 </head>
 <body>
 <main>
@@ -764,9 +818,15 @@ foreach ($conditionFields as $fieldName => $label) {
         </div>
     <?php endif; ?>
 
+    <?php if ($retiredAssetId !== null): ?>
+        <div class="notice" role="status">
+            Asset <?= $retiredAssetId ?> was retired and removed from the review queue.
+        </div>
+    <?php endif; ?>
+
     <?php if ($errors !== []): ?>
         <div class="error" role="alert">
-            <strong>The review was not saved.</strong>
+            <strong>The asset was not changed.</strong>
             <ul>
                 <?php foreach ($errors as $error): ?>
                     <li><?= collectionStewardEscape($error) ?></li>
@@ -818,6 +878,43 @@ foreach ($conditionFields as $fieldName => $label) {
                 </p>
             </div>
         </section>
+
+        <details class="asset-actions retirement-from-review">
+            <summary>Retire this asset instead of reviewing it</summary>
+            <p>
+                Use this when the item has left the collection or when its record was created in error. Its record and history will remain available to stewards.
+            </p>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
+                <input type="hidden" name="action" value="retire_asset">
+                <input type="hidden" name="asset_id" value="<?= (int) $selectedAsset['id'] ?>">
+                <div class="review-field-grid">
+                    <div class="field">
+                        <label for="review_retirement_disposition">Disposition</label>
+                        <select id="review_retirement_disposition" name="retirement_disposition" required>
+                            <option value="">Choose a disposition</option>
+                            <?php foreach (collectionStewardRetirementDispositions() as $dispositionValue => $dispositionLabel): ?>
+                                <option value="<?= collectionStewardEscape($dispositionValue) ?>" <?= $retirementDisposition === $dispositionValue ? 'selected' : '' ?>><?= collectionStewardEscape($dispositionLabel) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="review_retirement_date">Retirement date</label>
+                        <input type="date" id="review_retirement_date" name="retirement_date" value="<?= collectionStewardEscape($retirementDate) ?>" required>
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="review_retirement_note">Note (optional)</label>
+                    <textarea id="review_retirement_note" name="retirement_note" maxlength="5000"><?= collectionStewardEscape($retirementNote) ?></textarea>
+                    <span class="help">For a record created in error, choose Discarded and note that no physical asset existed.</span>
+                </div>
+                <label class="confirmation-choice">
+                    <input type="checkbox" name="confirm_retirement" value="1" required>
+                    I confirm that this asset should be retired.
+                </label>
+                <button type="submit" class="secondary">Retire asset</button>
+            </form>
+        </details>
 
         <form method="post" enctype="multipart/form-data" class="asset-review-form">
             <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">

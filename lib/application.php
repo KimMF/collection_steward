@@ -172,6 +172,140 @@ function collectionStewardEscape(?string $value): string
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
 }
 
+// Asset retirement hides a record without deleting it. The retirement event
+// and the asset's operational history remain in the database.
+function collectionStewardRetirementDispositions(): array
+{
+    return [
+        'discarded' => 'Discarded',
+        'donated_transferred' => 'Donated or transferred',
+        'returned_to_owner_lender' => 'Returned to owner or lender',
+        'sold' => 'Sold',
+        'lost_missing' => 'Lost or missing',
+        'other' => 'Other',
+    ];
+}
+
+function collectionStewardRetirementDispositionLabel(string $value): string
+{
+    return collectionStewardRetirementDispositions()[$value] ?? $value;
+}
+
+function collectionStewardRetireAsset(
+    PDO $connection,
+    int $assetId,
+    string $disposition,
+    string $effectiveDate,
+    string $note,
+    array $currentUser
+): void {
+    if (!isset(collectionStewardRetirementDispositions()[$disposition])) {
+        throw new DomainException('Choose a valid retirement disposition.');
+    }
+
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $effectiveDate);
+
+    if ($date === false || $date->format('Y-m-d') !== $effectiveDate) {
+        throw new DomainException('Enter a valid retirement date.');
+    }
+
+    if (strlen($note) > 5000) {
+        throw new DomainException('Keep the retirement note under 5,000 characters.');
+    }
+
+    if (!isset($currentUser['id'], $currentUser['display_name'])) {
+        throw new DomainException('A signed-in steward must record the retirement.');
+    }
+
+    try {
+        $connection->beginTransaction();
+
+        $assetStatement = $connection->prepare(
+            'SELECT id, collection_status
+             FROM assets
+             WHERE id = :asset_id
+             LIMIT 1
+             FOR UPDATE'
+        );
+        $assetStatement->execute([
+            'asset_id' => $assetId,
+        ]);
+        $asset = $assetStatement->fetch();
+
+        if ($asset === false) {
+            throw new DomainException('The selected asset was not found.');
+        }
+
+        if ($asset['collection_status'] !== 'active') {
+            throw new DomainException('That asset is already retired.');
+        }
+
+        $activeCheckoutStatement = $connection->prepare(
+            "SELECT id
+             FROM asset_checkouts
+             WHERE asset_id = :asset_id
+               AND status = 'active'
+             LIMIT 1"
+        );
+        $activeCheckoutStatement->execute([
+            'asset_id' => $assetId,
+        ]);
+
+        if ($activeCheckoutStatement->fetchColumn() !== false) {
+            throw new DomainException(
+                'Check in or undo the active production checkout before retiring this asset.'
+            );
+        }
+
+        $eventStatement = $connection->prepare(
+            "INSERT INTO asset_lifecycle_events (
+                asset_id,
+                event_type,
+                disposition,
+                effective_date,
+                note,
+                recorded_by_user_id
+             ) VALUES (
+                :asset_id,
+                'retired',
+                :disposition,
+                :effective_date,
+                :note,
+                :recorded_by_user_id
+             )"
+        );
+        $eventStatement->execute([
+            'asset_id' => $assetId,
+            'disposition' => $disposition,
+            'effective_date' => $effectiveDate,
+            'note' => $note !== '' ? $note : null,
+            'recorded_by_user_id' => (int) $currentUser['id'],
+        ]);
+
+        $updateAssetStatement = $connection->prepare(
+            "UPDATE assets
+             SET collection_status = 'retired',
+                 asset_review_status = 'not_queued',
+                 asset_review_requested_at = NULL,
+                 asset_review_requested_by_user_id = NULL,
+                 updated_by = :updated_by
+             WHERE id = :asset_id"
+        );
+        $updateAssetStatement->execute([
+            'updated_by' => (string) $currentUser['display_name'],
+            'asset_id' => $assetId,
+        ]);
+
+        $connection->commit();
+    } catch (Throwable $error) {
+        if ($connection->inTransaction()) {
+            $connection->rollBack();
+        }
+
+        throw $error;
+    }
+}
+
 // Asset labels and generated names shared by browsing, intake, and vocabulary.
 function collectionStewardAssetLabel(int $assetId, ?string $name): string
 {

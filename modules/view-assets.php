@@ -47,6 +47,7 @@ $availableTags = [];
 $strikeActions = [];
 $activeCheckout = null;
 $lastAssetReview = null;
+$latestLifecycleEvent = null;
 $currentUser = null;
 $canManageAssets = false;
 $canManageUsers = false;
@@ -56,9 +57,20 @@ $canUseCheckout = false;
 $canUseMeasurements = false;
 $loginError = null;
 $errorMessage = null;
+$assetManagementError = null;
 $assetId = null;
 $csrfToken = null;
 $pendingAssetReviewCount = 0;
+$retiredAssetCount = 0;
+$includeRetiredAssets = false;
+$retiredAssetId = filter_var(
+    $_GET['asset_retired'] ?? null,
+    FILTER_VALIDATE_INT,
+    ['options' => ['min_range' => 1]]
+);
+$retirementDisposition = '';
+$retirementDate = (new DateTimeImmutable('today'))->format('Y-m-d');
+$retirementNote = '';
 
 // A valid URL choice takes precedence over the saved cookie. New visitors use
 // the Compact layout unless they deliberately select Expanded.
@@ -163,6 +175,42 @@ try {
         $csrfToken = collectionStewardCsrfToken();
     }
 
+    if ($canManageAssets) {
+        $savedRetiredFilter = is_string(
+            $_COOKIE['collection_steward_include_retired'] ?? null
+        )
+            ? $_COOKIE['collection_steward_include_retired']
+            : '0';
+
+        if (isset($_GET['retired_filter'])) {
+            $includeRetiredAssets = ($_GET['include_retired'] ?? '') === '1';
+            setcookie(
+                'collection_steward_include_retired',
+                $includeRetiredAssets ? '1' : '0',
+                [
+                    'expires' => time() + (86400 * 365),
+                    'path' => '/',
+                    'secure' => !empty($_SERVER['HTTPS'])
+                        && $_SERVER['HTTPS'] !== 'off',
+                    'httponly' => true,
+                    'samesite' => 'Lax',
+                ]
+            );
+        } else {
+            $includeRetiredAssets = $savedRetiredFilter === '1';
+        }
+
+        $retiredAssetCount = (int) $connection->query(
+            "SELECT COUNT(*)
+             FROM assets
+             WHERE collection_status = 'retired'"
+        )->fetchColumn();
+    }
+
+    $collectionStatusFilter = $includeRetiredAssets
+        ? "a.collection_status IN ('active', 'retired')"
+        : "a.collection_status = 'active'";
+
     $assetChoiceStatement = $connection->query(
         "SELECT
             a.id,
@@ -172,6 +220,7 @@ try {
             COALESCE(co.name, a.color) AS color,
             a.size_description,
             a.availability_status,
+            a.collection_status,
             COALESCE(aty.name, 'Unassigned') AS asset_type,
             wo.name AS wearer,
             lo.name AS length_name,
@@ -195,6 +244,7 @@ try {
          LEFT JOIN asset_photos AS p
             ON p.asset_id = a.id
             AND p.is_primary = 1
+         WHERE " . $collectionStatusFilter . "
          ORDER BY asset_type, a.name, a.id"
     );
     $assetChoices = $assetChoiceStatement->fetchAll();
@@ -237,6 +287,7 @@ try {
         'add_strike_action',
         'complete_strike_action',
         'queue_asset_review',
+        'retire_asset',
     ];
 
     if (
@@ -256,6 +307,42 @@ try {
         if ($assetId === null) {
             http_response_code(404);
             exit('The selected asset was not found.');
+        }
+
+        if ($action === 'retire_asset') {
+            $retirementDisposition = is_string(
+                $_POST['retirement_disposition'] ?? null
+            )
+                ? trim($_POST['retirement_disposition'])
+                : '';
+            $retirementDate = is_string($_POST['retirement_date'] ?? null)
+                ? trim($_POST['retirement_date'])
+                : '';
+            $retirementNote = is_string($_POST['retirement_note'] ?? null)
+                ? trim($_POST['retirement_note'])
+                : '';
+
+            if (($_POST['confirm_retirement'] ?? '') !== '1') {
+                $assetManagementError = 'Confirm that this asset should be retired.';
+            } else {
+                try {
+                    collectionStewardRetireAsset(
+                        $connection,
+                        $assetId,
+                        $retirementDisposition,
+                        $retirementDate,
+                        $retirementNote,
+                        $currentUser
+                    );
+
+                    header('Location: /?asset_retired=' . $assetId);
+                    exit;
+                } catch (DomainException $error) {
+                    $assetManagementError = $error->getMessage();
+                } catch (Throwable $error) {
+                    $assetManagementError = 'The asset could not be retired.';
+                }
+            }
         }
 
         if ($action === 'assign_tag') {
@@ -293,7 +380,8 @@ try {
                      asset_review_requested_at = CURRENT_TIMESTAMP,
                      asset_review_requested_by_user_id = :requested_by_user_id,
                      updated_by = :updated_by
-                 WHERE id = :asset_id"
+                 WHERE id = :asset_id
+                   AND collection_status = 'active'"
             );
             $queueReviewStatement->execute([
                 'requested_by_user_id' => (int) $currentUser['id'],
@@ -384,8 +472,10 @@ try {
             }
         }
 
-        header('Location: /?asset_id=' . $assetId . '#asset-record');
-        exit;
+        if ($assetManagementError === null) {
+            header('Location: /?asset_id=' . $assetId . '#asset-record');
+            exit;
+        }
     }
 
     if ($assetId !== null) {
@@ -402,6 +492,7 @@ try {
                 a.asset_review_status,
                 a.notes,
                 a.availability_status,
+                a.collection_status,
                 aty.name AS asset_type,
                 wo.name AS wearer,
                 lo.name AS length_name,
@@ -501,6 +592,28 @@ try {
                 'asset_id' => $assetId,
             ]);
             $lastAssetReview = $lastReviewStatement->fetch() ?: null;
+
+            if ($asset['collection_status'] === 'retired') {
+                $lifecycleStatement = $connection->prepare(
+                    "SELECT
+                        ale.disposition,
+                        ale.effective_date,
+                        ale.note,
+                        ale.recorded_at,
+                        u.display_name AS recorded_by
+                     FROM asset_lifecycle_events AS ale
+                     LEFT JOIN users AS u
+                        ON u.id = ale.recorded_by_user_id
+                     WHERE ale.asset_id = :asset_id
+                       AND ale.event_type = 'retired'
+                     ORDER BY ale.recorded_at DESC, ale.id DESC
+                     LIMIT 1"
+                );
+                $lifecycleStatement->execute([
+                    'asset_id' => $assetId,
+                ]);
+                $latestLifecycleEvent = $lifecycleStatement->fetch() ?: null;
+            }
         }
     }
 
@@ -508,7 +621,8 @@ try {
         $pendingAssetReviewCount = (int) $connection->query(
             "SELECT COUNT(*)
              FROM assets
-             WHERE asset_review_status = 'pending'"
+             WHERE asset_review_status = 'pending'
+               AND collection_status = 'active'"
         )->fetchColumn();
 
         $availableTagStatement = $connection->query(
@@ -546,7 +660,7 @@ if (!is_string($assetBrowserJson)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260901-2">
+    <link rel="stylesheet" href="/app.css?v=20260903-2">
 </head>
 <body>
 <main>
@@ -612,8 +726,45 @@ if (!is_string($assetBrowserJson)) {
 
     <?php if ($errorMessage !== null): ?>
         <div class="error" role="alert"><?= collectionStewardEscape($errorMessage) ?></div>
+    <?php elseif (
+        $canManageAssets
+        && $retiredAssetId !== false
+        && $retiredAssetId !== null
+    ): ?>
+        <div class="notice" role="status">
+            Asset <?= (int) $retiredAssetId ?> was retired. Retired assets are hidden whenever <strong>Include retired assets</strong> is unchecked.
+        </div>
+    <?php endif; ?>
+
+    <?php if ($assetManagementError !== null): ?>
+        <div class="error" role="alert"><?= collectionStewardEscape($assetManagementError) ?></div>
+    <?php endif; ?>
+
+    <?php if (
+        $errorMessage === null
+        && $assetChoices === []
+        && $canManageAssets
+    ): ?>
+        <form method="get" action="/#asset-browser-title" class="asset-visibility-form">
+            <input type="hidden" name="retired_filter" value="1">
+            <label>
+                <input
+                    type="checkbox"
+                    name="include_retired"
+                    value="1"
+                    <?= $includeRetiredAssets ? 'checked' : '' ?>
+                    data-submit-on-change
+                >
+                Include retired assets<?= $retiredAssetCount > 0 ? ' (' . $retiredAssetCount . ')' : '' ?>
+            </label>
+            <noscript><button type="submit" class="secondary">Apply asset view</button></noscript>
+        </form>
+    <?php endif; ?>
+
+    <?php if ($errorMessage !== null): ?>
+        <?php // The database error was already displayed above. ?>
     <?php elseif ($assetChoices === []): ?>
-        <p>No asset records have been entered yet.</p>
+        <p><?= $retiredAssetCount > 0 && !$includeRetiredAssets ? 'No active assets are visible.' : 'No asset records have been entered yet.' ?></p>
     <?php else: ?>
         <section class="asset-browser" aria-labelledby="asset-browser-title">
             <div class="section-heading">
@@ -622,6 +773,25 @@ if (!is_string($assetBrowserJson)) {
                     <?= count($assetChoices) === 1 ? 'asset' : 'assets' ?>
                 </h2>
                 <div class="asset-browser-heading-actions">
+                    <?php if ($canManageAssets): ?>
+                        <form method="get" action="/#asset-browser-title" class="asset-list-mode-form">
+                            <input type="hidden" name="retired_filter" value="1">
+                            <?php if ($assetId !== null): ?>
+                                <input type="hidden" name="asset_id" value="<?= $assetId ?>">
+                            <?php endif; ?>
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    name="include_retired"
+                                    value="1"
+                                    <?= $includeRetiredAssets ? 'checked' : '' ?>
+                                    data-submit-on-change
+                                >
+                                Include retired assets<?= $retiredAssetCount > 0 ? ' (' . $retiredAssetCount . ')' : '' ?>
+                            </label>
+                            <noscript><button type="submit" class="secondary">Apply asset view</button></noscript>
+                        </form>
+                    <?php endif; ?>
                     <form method="get" action="/#asset-browser-title" class="asset-list-mode-form">
                         <?php if ($assetId !== null): ?>
                             <input type="hidden" name="asset_id" value="<?= $assetId ?>">
@@ -677,11 +847,12 @@ if (!is_string($assetBrowserJson)) {
                                     (string) ($assetChoice['length_name'] ?? ''),
                                     (string) ($assetChoice['tags'] ?? ''),
                                     (string) $assetChoice['asset_type'],
+                                    (string) $assetChoice['collection_status'],
                                 ]));
                                 ?>
                                 <a
                                     href="/?asset_id=<?= (int) $assetChoice['id'] ?>#asset-record"
-                                    class="asset-list-item <?= (int) $assetChoice['id'] === $assetId ? 'is-current' : '' ?>"
+                                    class="asset-list-item <?= (int) $assetChoice['id'] === $assetId ? 'is-current' : '' ?> <?= $assetChoice['collection_status'] === 'retired' ? 'is-retired' : '' ?>"
                                     data-asset-id="<?= (int) $assetChoice['id'] ?>"
                                     data-search="<?= collectionStewardEscape($searchText) ?>"
                                 >
@@ -692,13 +863,23 @@ if (!is_string($assetBrowserJson)) {
                                             <span class="asset-list-placeholder" aria-hidden="true">No photo</span>
                                         <?php endif; ?>
                                         <span>
-                                            <strong><?= collectionStewardEscape($assetChoice['display_label']) ?></strong>
+                                            <strong>
+                                                <?= collectionStewardEscape($assetChoice['display_label']) ?>
+                                                <?php if ($assetChoice['collection_status'] === 'retired'): ?>
+                                                    <span class="retired-marker">— Retired</span>
+                                                <?php endif; ?>
+                                            </strong>
                                             <?php if (!empty($assetChoice['size_description'])): ?>
                                                 <small>Size <?= collectionStewardEscape($assetChoice['size_description']) ?></small>
                                             <?php endif; ?>
                                         </span>
                                     <?php else: ?>
-                                        <strong><?= collectionStewardEscape($assetChoice['display_label']) ?></strong>
+                                        <strong>
+                                            <?= collectionStewardEscape($assetChoice['display_label']) ?>
+                                            <?php if ($assetChoice['collection_status'] === 'retired'): ?>
+                                                <span class="retired-marker">— Retired</span>
+                                            <?php endif; ?>
+                                        </strong>
                                     <?php endif; ?>
                                 </a>
                             <?php endforeach; ?>
@@ -732,7 +913,13 @@ if (!is_string($assetBrowserJson)) {
                 </div>
 
                 <div class="notice">
-                    <strong>Status:</strong>
+                    <?php if ($asset['collection_status'] === 'retired'): ?>
+                        <strong>Collection:</strong> Retired
+                        <br>
+                        <strong>Availability at retirement:</strong>
+                    <?php else: ?>
+                        <strong>Status:</strong>
+                    <?php endif; ?>
                     <?= collectionStewardEscape(ucfirst(str_replace('_', ' ', (string) $asset['availability_status']))) ?>
 
                     <?php if ($activeCheckout !== null): ?>
@@ -756,6 +943,26 @@ if (!is_string($assetBrowserJson)) {
                         <?php endif; ?>
                     <?php endif; ?>
                 </div>
+
+                <?php if ($latestLifecycleEvent !== null): ?>
+                    <div class="retirement-record">
+                        <h3>Retirement record</h3>
+                        <dl class="asset-facts full-asset-facts">
+                            <div><dt>Date</dt><dd><?= collectionStewardEscape($latestLifecycleEvent['effective_date']) ?></dd></div>
+                            <div><dt>Disposition</dt><dd><?= collectionStewardEscape(collectionStewardRetirementDispositionLabel((string) $latestLifecycleEvent['disposition'])) ?></dd></div>
+                            <div>
+                                <dt>Recorded by</dt>
+                                <dd>
+                                    <?= collectionStewardEscape($latestLifecycleEvent['recorded_by'] ?: 'Former user') ?>
+                                    on <?= collectionStewardEscape($latestLifecycleEvent['recorded_at']) ?>
+                                </dd>
+                            </div>
+                            <?php if (!empty($latestLifecycleEvent['note'])): ?>
+                                <div><dt>Note</dt><dd><?= collectionStewardEscape($latestLifecycleEvent['note']) ?></dd></div>
+                            <?php endif; ?>
+                        </dl>
+                    </div>
+                <?php endif; ?>
 
                 <?php if (!empty($asset['file_path'])): ?>
                     <div class="asset-photo-panel">
@@ -834,7 +1041,11 @@ if (!is_string($assetBrowserJson)) {
                     </section>
                 <?php endif; ?>
 
-                <?php if ($canManageAssets && $csrfToken !== null): ?>
+                <?php if (
+                    $canManageAssets
+                    && $csrfToken !== null
+                    && $asset['collection_status'] === 'active'
+                ): ?>
                     <details class="asset-actions">
                         <summary>Steward actions</summary>
 
@@ -909,12 +1120,54 @@ if (!is_string($assetBrowserJson)) {
                             </div>
                             <button type="submit">Record strike work</button>
                         </form>
+
+                        <div class="retirement-action">
+                            <h3>Retire asset</h3>
+                            <p>
+                                Use this when an item leaves the collection or when its record was created in error. The record and its history will be preserved.
+                            </p>
+                            <form method="post" action="/?asset_id=<?= (int) $asset['id'] ?>#asset-record">
+                                <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
+                                <input type="hidden" name="action" value="retire_asset">
+                                <div class="field">
+                                    <label for="retirement_disposition">Disposition</label>
+                                    <select id="retirement_disposition" name="retirement_disposition" required>
+                                        <option value="">Choose a disposition</option>
+                                        <?php foreach (collectionStewardRetirementDispositions() as $dispositionValue => $dispositionLabel): ?>
+                                            <option value="<?= collectionStewardEscape($dispositionValue) ?>" <?= $retirementDisposition === $dispositionValue ? 'selected' : '' ?>><?= collectionStewardEscape($dispositionLabel) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="field">
+                                    <label for="retirement_date">Retirement date</label>
+                                    <input type="date" id="retirement_date" name="retirement_date" value="<?= collectionStewardEscape($retirementDate) ?>" required>
+                                </div>
+                                <div class="field">
+                                    <label for="retirement_note">Note (optional)</label>
+                                    <textarea id="retirement_note" name="retirement_note" maxlength="5000"><?= collectionStewardEscape($retirementNote) ?></textarea>
+                                    <span class="help">For a record created in error, choose Discarded and note that no physical asset existed.</span>
+                                </div>
+                                <label class="confirmation-choice">
+                                    <input type="checkbox" name="confirm_retirement" value="1" required>
+                                    I confirm that this asset should be retired.
+                                </label>
+                                <button type="submit" class="secondary">Retire asset</button>
+                            </form>
+                        </div>
                     </details>
                 <?php endif; ?>
             </article>
         <?php endif; ?>
     <?php endif; ?>
 </main>
+
+<script>
+    document.querySelectorAll('[data-submit-on-change]').forEach(function (input) {
+        input.addEventListener('change', function () {
+            input.form.requestSubmit();
+        });
+    });
+</script>
 
 <?php if ($assetChoices !== []): ?>
     <script type="application/json" id="asset-browser-data"><?= $assetBrowserJson ?></script>
@@ -937,12 +1190,6 @@ if (!is_string($assetBrowserJson)) {
         let previewedAssetId = null;
         let scrollTimer = null;
 
-        document.querySelectorAll('[data-submit-on-change]').forEach(function (input) {
-            input.addEventListener('change', function () {
-                input.form.requestSubmit();
-            });
-        });
-
         const setOptionalPreviewValue = function (rowId, valueId, value) {
             const row = document.getElementById(rowId);
             document.getElementById(valueId).textContent = value || '';
@@ -959,7 +1206,10 @@ if (!is_string($assetBrowserJson)) {
             previewedAssetId = String(asset.id);
             document.getElementById('preview-name').textContent = asset.display_label;
             document.getElementById('preview-type').textContent = asset.asset_type;
-            document.getElementById('preview-status').textContent = String(asset.availability_status)
+            const previewStatus = asset.collection_status === 'retired'
+                ? 'retired'
+                : asset.availability_status;
+            document.getElementById('preview-status').textContent = String(previewStatus)
                 .replaceAll('_', ' ')
                 .replace(/^./, function (letter) { return letter.toUpperCase(); });
             document.getElementById('preview-full-link').href = '/?asset_id=' + asset.id + '#asset-record';

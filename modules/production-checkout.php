@@ -231,7 +231,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $assetStatement = $connection->prepare(
-                    'SELECT id, name
+                    'SELECT id, name, collection_status
                      FROM assets
                      WHERE id = :asset_id
                      LIMIT 1
@@ -244,6 +244,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($asset === false) {
                     throw new DomainException('The selected asset was not found.');
+                }
+
+                if ($asset['collection_status'] !== 'active') {
+                    throw new DomainException('That asset has been retired.');
                 }
 
                 $activeCheckoutStatement = $connection->prepare(
@@ -444,6 +448,7 @@ if ($productionId !== null) {
         "SELECT a.id, a.name, a.size_description
          FROM assets AS a
          WHERE a.availability_status = 'available'
+           AND a.collection_status = 'active'
            AND NOT EXISTS (
             SELECT 1
             FROM asset_checkouts AS ac

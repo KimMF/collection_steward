@@ -33,6 +33,9 @@ The current post-baseline pilot changes and deployment checks are described in
 The agreed Version 3 scope and implementation order are documented in
 [`docs/version-3-plan.md`](docs/version-3-plan.md).
 
+The Version 3 soft-retirement workflow, deployment order, and smoke test are
+documented in [`docs/asset-retirement.md`](docs/asset-retirement.md).
+
 The database-controlled intake fields and vocabulary-review workflow are
 described in
 [`docs/controlled-intake-vocabulary.md`](docs/controlled-intake-vocabulary.md).

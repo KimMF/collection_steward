@@ -36,17 +36,19 @@ The starting point for this work is the tagged `v0.2.2` release.
   including the asset ID, audit timestamps, checkout history, and strike-work
   history.
 - [ ] Allow a steward or administrator to **retire** a physical asset that has
-  left the active collection. Record its disposition, effective date, note,
-  and the user who retired it; preserve its permanent ID and history.
+  left the active collection or a database record that was created in error.
+  Record its disposition, effective date, note, and the user who retired it;
+  preserve its permanent ID and history.
+- [ ] Offer retirement dispositions of **Discarded**, **Donated or
+  transferred**, **Returned to owner or lender**, **Sold**, **Lost or
+  missing**, and **Other**. Use **Discarded** with an explanatory note when a
+  record was created in error and no physical asset existed.
 - [ ] Exclude all retired assets from the normal **View assets** list and from
   checkout by default.
 - [ ] Give authorized users a simple **Include retired assets** checkbox on
   **View assets**. Retired assets remain hidden whenever the box is unchecked.
-- [ ] Allow an administrator to mark a mistaken database record **Entered in
-  error**. Hide it from normal workflows while preserving its permanent ID and
-  any history that already exists.
-- [ ] Do not permanently delete an established asset record through the web
-  application.
+- [ ] Do not provide a separate **Entered in error** status or permanently
+  delete an established asset record through the web application.
 - [ ] Allow the reviewer to mark the asset reviewed and remove it from the
   queue.
 - [ ] Use the approved simple generated-name format when structured fields are
@@ -159,6 +161,9 @@ The Version 3 fitting is intentionally limited. It is not a costume plot.
 - Full alteration, repair, laundering, or other preparation workflows. Version
   3 may record or tag that work as needed, but does not manage the work itself.
 - Automated or calculated fit recommendations.
+- A searchable or otherwise scalable asset selector for production checkout;
+  the current selector remains adequate for the Version 3 collection size and
+  will be improved in Version 4.
 - Password-handling improvements, including administrator recovery codes and a
   secure password generator. These are deferred to Version 4.
 
@@ -166,14 +171,16 @@ The Version 3 fitting is intentionally limited. It is not a costume plot.
 
 1. Add the asset-review data model, queue, condition review, and correction
    screen.
-2. Add the dedicated Productions page and cast management.
-3. Add production measurement sessions and reusable templates.
-4. Add immutable measurement change history before expanding routine
+2. Add soft asset retirement, append-only disposition history, and retired
+   asset filtering.
+3. Add the dedicated Productions page and cast management.
+4. Add production measurement sessions and reusable templates.
+5. Add immutable measurement change history before expanding routine
    measurement editing further.
-5. Add pull lists and the simple fitting workflow on top of productions, cast,
+6. Add pull lists and the simple fitting workflow on top of productions, cast,
    assets, tags, and checkout.
-6. Add the administrator data-maintenance views.
-7. Complete regression testing, deployment documentation, release notes, and
+7. Add the administrator data-maintenance views.
+8. Complete regression testing, deployment documentation, release notes, and
    the `v0.3.0` release.
 
 ## Scope rule
