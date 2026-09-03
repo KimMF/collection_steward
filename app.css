@@ -128,6 +128,71 @@ fieldset.field legend {
     margin-bottom: 0;
 }
 
+.review-asset-picker {
+    max-width: 48rem;
+}
+
+.review-asset-summary {
+    align-items: flex-start;
+    background: #f4f1e9;
+    border-radius: 0.5rem;
+    display: flex;
+    gap: 1rem;
+    margin: 1rem 0 1.5rem;
+    padding: 1rem;
+}
+
+.review-asset-summary h2,
+.review-asset-summary p {
+    margin-top: 0;
+}
+
+.review-asset-photo {
+    border-radius: 0.4rem;
+    height: 10rem;
+    object-fit: contain;
+    width: 10rem;
+}
+
+.review-field-grid,
+.review-condition-grid,
+.review-tag-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.review-field-grid,
+.review-condition-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.review-tag-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.condition-review-item {
+    background: #f4f1e9;
+    border-radius: 0.4rem;
+    padding: 0.85rem;
+}
+
+.condition-review-item h3 {
+    margin-top: 0;
+}
+
+.condition-review-item textarea {
+    min-height: 4rem;
+}
+
+.review-history article {
+    border-top: 1px solid #d5d1c8;
+    padding: 1rem 0;
+}
+
+.review-history article:first-of-type {
+    border-top: 0;
+}
+
 .choices label {
     align-items: center;
     display: flex;
@@ -1578,8 +1643,14 @@ main.measurements-page {
     .asset-browser-layout,
     .browser-filters,
     .saved-asset-card,
-    .measurement-workspace {
+    .measurement-workspace,
+    .review-field-grid,
+    .review-condition-grid {
         grid-template-columns: 1fr;
+    }
+
+    .review-tag-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .measurement-workspace.is-compact-view {
@@ -1630,11 +1701,23 @@ main.measurements-page {
     .site-header,
     .page-heading,
     .section-heading,
+    .review-asset-summary,
     .user-card,
     .measurement-session-header,
     .measurement-view-controls,
     .sticky-save-row {
         display: block;
+    }
+
+    .review-asset-photo {
+        height: auto;
+        margin-bottom: 0.75rem;
+        max-height: 18rem;
+        width: 100%;
+    }
+
+    .review-tag-grid {
+        grid-template-columns: 1fr;
     }
 
     .actor-session-toggle {

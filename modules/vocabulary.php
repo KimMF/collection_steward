@@ -340,6 +340,9 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
         <?php if (collectionStewardUserCan($currentUser, 'measurements')): ?>
             <a href="/measurements.php">Measurements</a>
         <?php endif; ?>
+        <?php if (collectionStewardUserCan($currentUser, 'manage_assets')): ?>
+            <a href="/asset-review.php">Asset review</a>
+        <?php endif; ?>
         <a href="/vocabulary.php" aria-current="page">Vocabulary</a>
         <?php if (collectionStewardUserCan($currentUser, 'manage_users')): ?>
             <a href="/users.php">Users</a>

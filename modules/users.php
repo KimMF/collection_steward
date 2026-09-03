@@ -234,6 +234,7 @@ $users = $userStatement->fetchAll();
         <a href="/intake.php">Intake</a>
         <a href="/checkout.php">Production checkout</a>
         <a href="/measurements.php">Measurements</a>
+        <a href="/asset-review.php">Asset review</a>
         <a href="/vocabulary.php">Vocabulary</a>
         <a href="/users.php" aria-current="page">Users</a>
         <a href="/change-password.php">Password</a>

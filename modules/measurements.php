@@ -2044,6 +2044,9 @@ $groupScopeLinkParameters['scope'] = 'group';
         <a href="/intake.php">Intake</a>
         <a href="/checkout.php">Production checkout</a>
         <a href="/measurements.php" aria-current="page">Measurements</a>
+        <?php if (collectionStewardUserCan($currentUser, 'manage_assets')): ?>
+            <a href="/asset-review.php">Asset review</a>
+        <?php endif; ?>
         <?php if (collectionStewardUserCan($currentUser, 'manage_vocabulary')): ?>
             <a href="/vocabulary.php">Vocabulary</a>
         <?php endif; ?>

@@ -182,6 +182,63 @@ function collectionStewardAssetLabel(int $assetId, ?string $name): string
     return 'Asset ' . $assetId . ' — ' . $descriptiveName;
 }
 
+function collectionStewardAssetSizeDescription(
+    ?string $standardizedSize,
+    ?string $exactSizeLabel,
+    ?string $fallbackSize = null
+): string
+{
+    $standardizedSize = is_string($standardizedSize)
+        ? trim($standardizedSize)
+        : '';
+    $exactSizeLabel = is_string($exactSizeLabel)
+        ? trim($exactSizeLabel)
+        : '';
+
+    if (
+        in_array(strtolower($standardizedSize), ['unknown', 'not applicable'], true)
+    ) {
+        $standardizedSize = '';
+    }
+
+    if (
+        in_array(strtolower($exactSizeLabel), ['unknown', 'not applicable'], true)
+    ) {
+        $exactSizeLabel = '';
+    }
+
+    if ($standardizedSize !== '' && $exactSizeLabel !== '') {
+        if (strcasecmp($standardizedSize, $exactSizeLabel) === 0) {
+            return $standardizedSize;
+        }
+
+        return $standardizedSize . ' (' . $exactSizeLabel . ')';
+    }
+
+    if ($standardizedSize !== '') {
+        return $standardizedSize;
+    }
+
+    if ($exactSizeLabel !== '') {
+        return $exactSizeLabel;
+    }
+
+    $fallbackSize = is_string($fallbackSize) ? trim($fallbackSize) : '';
+
+    if (
+        $fallbackSize !== ''
+        && !in_array(
+            strtolower($fallbackSize),
+            ['unknown', 'not applicable'],
+            true
+        )
+    ) {
+        return $fallbackSize;
+    }
+
+    return '';
+}
+
 function collectionStewardBuildAssetName(
     ?string $wearer,
     ?string $primaryColor,
@@ -192,7 +249,7 @@ function collectionStewardBuildAssetName(
 {
     $nameParts = [];
 
-    foreach ([$wearer, $primaryColor, $length, $assetType] as $namePart) {
+    foreach ([$wearer, $primaryColor, $assetType] as $partIndex => $namePart) {
         if (!is_string($namePart)) {
             continue;
         }
@@ -208,7 +265,9 @@ function collectionStewardBuildAssetName(
                 true
             )
         ) {
-            $nameParts[] = $trimmedNamePart;
+            $nameParts[] = $partIndex === 0
+                ? $trimmedNamePart
+                : strtolower($trimmedNamePart);
         }
     }
 
@@ -216,15 +275,28 @@ function collectionStewardBuildAssetName(
         ? implode(' ', $nameParts)
         : 'Unclassified item';
 
-    if (is_string($size)) {
-        $trimmedSize = trim($size);
-        $normalizedSize = strtolower($trimmedSize);
+    $trimmedSize = is_string($size) ? trim($size) : '';
+    if (
+        $trimmedSize === ''
+        || in_array(strtolower($trimmedSize), ['unknown', 'not applicable'], true)
+    ) {
+        $trimmedSize = 'Not recorded';
+    }
+
+    $name .= ' — Size: ' . $trimmedSize;
+
+    if (is_string($length)) {
+        $trimmedLength = trim($length);
 
         if (
-            $trimmedSize !== ''
-            && !in_array($normalizedSize, ['unknown', 'not applicable'], true)
+            $trimmedLength !== ''
+            && !in_array(
+                strtolower($trimmedLength),
+                ['unknown', 'not applicable'],
+                true
+            )
         ) {
-            $name .= ' — ' . $trimmedSize;
+            $name .= '; Length: ' . $trimmedLength;
         }
     }
 
@@ -269,25 +341,11 @@ function collectionStewardRefreshAssetName(
         throw new DomainException('The asset for this suggestion was not found.');
     }
 
-    $displaySize = is_string($asset['standardized_size'] ?? null)
-        ? trim($asset['standardized_size'])
-        : '';
-    $exactSizeLabel = is_string($asset['exact_size_label'] ?? null)
-        ? trim($asset['exact_size_label'])
-        : '';
-
-    if ($exactSizeLabel !== '') {
-        if (
-            $displaySize !== ''
-            && strcasecmp($displaySize, $exactSizeLabel) !== 0
-        ) {
-            $displaySize .= ' (' . $exactSizeLabel . ')';
-        } else {
-            $displaySize = $exactSizeLabel;
-        }
-    } elseif ($displaySize === '' && is_string($asset['size_description'])) {
-        $displaySize = trim($asset['size_description']);
-    }
+    $displaySize = collectionStewardAssetSizeDescription(
+        $asset['standardized_size'] ?? null,
+        $asset['exact_size_label'] ?? null,
+        $asset['size_description'] ?? null
+    );
 
     $generatedName = collectionStewardBuildAssetName(
         $asset['wearer'] ?? null,

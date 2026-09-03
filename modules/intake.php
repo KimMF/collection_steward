@@ -262,17 +262,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    $displaySize = $selectedOptionNames['size'];
-    if ($values['exact_size_label'] !== '') {
-        if (
-            is_string($displaySize)
-            && strcasecmp($displaySize, $values['exact_size_label']) !== 0
-        ) {
-            $displaySize .= ' (' . $values['exact_size_label'] . ')';
-        } else {
-            $displaySize = $values['exact_size_label'];
-        }
-    }
+    $displaySize = collectionStewardAssetSizeDescription(
+        $selectedOptionNames['size'],
+        $values['exact_size_label']
+    );
 
     $generatedAssetName = collectionStewardBuildAssetName(
         $selectedOptionNames['wearer'],
@@ -338,6 +331,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     notes,
                     received_date,
                     acquisition_type,
+                    asset_review_status,
+                    asset_review_requested_at,
+                    asset_review_requested_by_user_id,
                     created_by,
                     updated_by
                  ) VALUES (
@@ -356,6 +352,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     :notes,
                     :received_date,
                     :acquisition_type,
+                    \'pending\',
+                    CURRENT_TIMESTAMP,
+                    :asset_review_requested_by_user_id,
                     :created_by,
                     :updated_by
                  )'
@@ -379,6 +378,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'notes' => $values['notes'] !== '' ? $values['notes'] : null,
                 'received_date' => $receivedDate,
                 'acquisition_type' => 'donation',
+                'asset_review_requested_by_user_id' => (int) $currentUser['id'],
                 'created_by' => $currentUser['display_name'],
                 'updated_by' => $currentUser['display_name'],
             ]);
@@ -509,6 +509,7 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
             a.color,
             a.size_description,
             a.received_date,
+            a.asset_review_status,
             aty.name AS asset_type,
             wo.name AS wearer,
             COALESCE(co.name, a.color) AS primary_color,
@@ -590,6 +591,9 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
         <?php if (collectionStewardUserCan($currentUser, 'measurements')): ?>
             <a href="/measurements.php">Measurements</a>
         <?php endif; ?>
+        <?php if (collectionStewardUserCan($currentUser, 'manage_assets')): ?>
+            <a href="/asset-review.php">Asset review</a>
+        <?php endif; ?>
         <?php if (collectionStewardUserCan($currentUser, 'manage_vocabulary')): ?>
             <a href="/vocabulary.php">Vocabulary</a>
         <?php endif; ?>
@@ -631,6 +635,7 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
                     <h2 id="saved-asset-title"><?= collectionStewardEscape(collectionStewardAssetLabel((int) $createdAsset['id'], $createdAsset['name'])) ?></h2>
                     <dl class="asset-facts">
                         <div><dt>Asset ID</dt><dd><?= (int) $createdAsset['id'] ?></dd></div>
+                        <div><dt>Review</dt><dd>Awaiting steward review</dd></div>
                         <div><dt>Type</dt><dd><?= collectionStewardEscape($createdAsset['asset_type'] ?? 'Pending review') ?></dd></div>
                         <?php if (!empty($createdAsset['wearer'])): ?>
                             <div><dt>Wearer</dt><dd><?= collectionStewardEscape($createdAsset['wearer']) ?></dd></div>
@@ -945,12 +950,12 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
         const updateGeneratedName = function () {
             const nameParts = [
                 selectedOptionName('wearer_option_id'),
-                selectedOptionName('primary_color_option_id'),
-                selectedOptionName('length_option_id'),
-                selectedOptionName('asset_type_id'),
+                selectedOptionName('primary_color_option_id').toLocaleLowerCase(),
+                selectedOptionName('asset_type_id').toLocaleLowerCase(),
             ].filter(Boolean);
             let displaySize = selectedOptionName('size_option_id');
             const exactLabel = exactSizeLabel.value.trim();
+            const length = selectedOptionName('length_option_id');
 
             if (exactLabel) {
                 displaySize = displaySize
@@ -963,8 +968,10 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
                 ? nameParts.join(' ')
                 : 'Unclassified item';
 
-            if (displaySize) {
-                generatedName += ' — ' + displaySize;
+            generatedName += ' — Size: ' + (displaySize || 'Not recorded');
+
+            if (length) {
+                generatedName += '; Length: ' + length;
             }
 
             generatedNamePreview.textContent = generatedName;

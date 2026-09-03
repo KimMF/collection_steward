@@ -15,6 +15,7 @@ application's established URLs. Each entry point loads one functional module:
 | `intake.php` | `modules/intake.php` |
 | `checkout.php` | `modules/production-checkout.php` |
 | `measurements.php` | `modules/measurements.php` |
+| `asset-review.php` | `modules/asset-review.php` |
 | `vocabulary.php` | `modules/vocabulary.php` |
 | `users.php` | `modules/users.php` |
 | `change-password.php` | `modules/password.php` |
@@ -28,6 +29,9 @@ Release notes are preserved in [`docs/releases`](docs/releases).
 
 The current post-baseline pilot changes and deployment checks are described in
 [`docs/sonya-pilot-improvements.md`](docs/sonya-pilot-improvements.md).
+
+The agreed Version 3 scope and implementation order are documented in
+[`docs/version-3-plan.md`](docs/version-3-plan.md).
 
 The database-controlled intake fields and vocabulary-review workflow are
 described in

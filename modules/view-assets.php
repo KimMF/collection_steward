@@ -46,6 +46,7 @@ $assignedTags = [];
 $availableTags = [];
 $strikeActions = [];
 $activeCheckout = null;
+$lastAssetReview = null;
 $currentUser = null;
 $canManageAssets = false;
 $canManageUsers = false;
@@ -57,6 +58,7 @@ $loginError = null;
 $errorMessage = null;
 $assetId = null;
 $csrfToken = null;
+$pendingAssetReviewCount = 0;
 
 // A valid URL choice takes precedence over the saved cookie. New visitors use
 // the Compact layout unless they deliberately select Expanded.
@@ -234,6 +236,7 @@ try {
         'remove_tag',
         'add_strike_action',
         'complete_strike_action',
+        'queue_asset_review',
     ];
 
     if (
@@ -281,6 +284,27 @@ try {
                     ]);
                 }
             }
+        }
+
+        if ($action === 'queue_asset_review') {
+            $queueReviewStatement = $connection->prepare(
+                "UPDATE assets
+                 SET asset_review_status = 'pending',
+                     asset_review_requested_at = CURRENT_TIMESTAMP,
+                     asset_review_requested_by_user_id = :requested_by_user_id,
+                     updated_by = :updated_by
+                 WHERE id = :asset_id"
+            );
+            $queueReviewStatement->execute([
+                'requested_by_user_id' => (int) $currentUser['id'],
+                'updated_by' => $currentUser['display_name'],
+                'asset_id' => $assetId,
+            ]);
+
+            header(
+                'Location: /asset-review.php?asset_id=' . $assetId
+            );
+            exit;
         }
 
         if ($action === 'remove_tag') {
@@ -375,6 +399,7 @@ try {
                 a.size_description,
                 a.received_date,
                 a.acquisition_type,
+                a.asset_review_status,
                 a.notes,
                 a.availability_status,
                 aty.name AS asset_type,
@@ -459,9 +484,33 @@ try {
             'asset_id' => $assetId,
         ]);
         $strikeActions = $strikeActionStatement->fetchAll();
+
+        if ($canManageAssets) {
+            $lastReviewStatement = $connection->prepare(
+                'SELECT
+                    acr.reviewed_at,
+                    u.display_name AS reviewer_name
+                 FROM asset_condition_reviews AS acr
+                 LEFT JOIN users AS u
+                    ON u.id = acr.reviewed_by_user_id
+                 WHERE acr.asset_id = :asset_id
+                 ORDER BY acr.reviewed_at DESC, acr.id DESC
+                 LIMIT 1'
+            );
+            $lastReviewStatement->execute([
+                'asset_id' => $assetId,
+            ]);
+            $lastAssetReview = $lastReviewStatement->fetch() ?: null;
+        }
     }
 
     if ($canManageAssets) {
+        $pendingAssetReviewCount = (int) $connection->query(
+            "SELECT COUNT(*)
+             FROM assets
+             WHERE asset_review_status = 'pending'"
+        )->fetchColumn();
+
         $availableTagStatement = $connection->query(
             'SELECT id, name
              FROM tags
@@ -527,6 +576,9 @@ if (!is_string($assetBrowserJson)) {
             <?php endif; ?>
             <?php if ($canUseMeasurements): ?>
                 <a href="/measurements.php">Measurements</a>
+            <?php endif; ?>
+            <?php if ($canManageAssets): ?>
+                <a href="/asset-review.php">Asset review<?= $pendingAssetReviewCount > 0 ? ' (' . $pendingAssetReviewCount . ')' : '' ?></a>
             <?php endif; ?>
             <?php if ($canManageVocabulary): ?>
                 <a href="/vocabulary.php">Vocabulary</a>
@@ -690,6 +742,19 @@ if (!is_string($assetBrowserJson)) {
                         — <?= collectionStewardEscape($activeCheckout['character_name']) ?>
                         (<?= collectionStewardEscape($activeCheckout['actor_name']) ?>)
                     <?php endif; ?>
+
+                    <?php if ($canManageAssets): ?>
+                        <br>
+                        <strong>Asset review:</strong>
+                        <?php if ($asset['asset_review_status'] === 'pending'): ?>
+                            Awaiting review
+                        <?php elseif ($lastAssetReview !== null): ?>
+                            Last reviewed <?= collectionStewardEscape($lastAssetReview['reviewed_at']) ?>
+                            by <?= collectionStewardEscape($lastAssetReview['reviewer_name'] ?: 'a former user') ?>
+                        <?php else: ?>
+                            Not queued
+                        <?php endif; ?>
+                    <?php endif; ?>
                 </div>
 
                 <?php if (!empty($asset['file_path'])): ?>
@@ -772,6 +837,16 @@ if (!is_string($assetBrowserJson)) {
                 <?php if ($canManageAssets && $csrfToken !== null): ?>
                     <details class="asset-actions">
                         <summary>Steward actions</summary>
+
+                        <?php if ($asset['asset_review_status'] === 'pending'): ?>
+                            <p><a class="button" href="/asset-review.php?asset_id=<?= (int) $asset['id'] ?>">Open asset review</a></p>
+                        <?php else: ?>
+                            <form method="post" action="/?asset_id=<?= (int) $asset['id'] ?>#asset-record" class="compact-form">
+                                <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
+                                <input type="hidden" name="action" value="queue_asset_review">
+                                <button type="submit">Send to asset review</button>
+                            </form>
+                        <?php endif; ?>
 
                         <?php if ($availableTags !== []): ?>
                             <form method="post" action="/?asset_id=<?= (int) $asset['id'] ?>#asset-record" class="compact-form">

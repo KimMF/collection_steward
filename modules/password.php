@@ -112,6 +112,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php if (collectionStewardUserCan($currentUser, 'measurements')): ?>
                 <a href="/measurements.php">Measurements</a>
             <?php endif; ?>
+            <?php if (collectionStewardUserCan($currentUser, 'manage_assets')): ?>
+                <a href="/asset-review.php">Asset review</a>
+            <?php endif; ?>
             <?php if (collectionStewardUserCan($currentUser, 'manage_vocabulary')): ?>
                 <a href="/vocabulary.php">Vocabulary</a>
             <?php endif; ?>
