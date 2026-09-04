@@ -141,17 +141,17 @@ The Version 3 fitting is intentionally limited. It is not a costume plot.
 
 ### 7. Release completion
 
-- [ ] Use new numbered, one-time database migrations for Version 3 schema
+- [x] Use new numbered, one-time database migrations for Version 3 schema
   changes.
-- [ ] Keep private data, imported personal information, passwords, and
+- [x] Keep private data, imported personal information, passwords, and
   production credentials out of GitHub.
-- [ ] Add deployment and rollback instructions for every schema or file change.
-- [ ] Test administrator, steward, and intake-only permissions.
-- [ ] Test the affected workflows on a computer and a phone.
-- [ ] Confirm that Version 2 intake, asset browsing, vocabulary review,
+- [x] Add deployment and rollback instructions for every schema or file change.
+- [x] Test administrator, steward, and intake-only permissions.
+- [x] Test the affected workflows on a computer and a phone.
+- [x] Confirm that Version 2 intake, asset browsing, vocabulary review,
   measurements, printing, checkout, user administration, and password-change
   behavior still work.
-- [ ] Add `docs/releases/0.3.0.md` and update the README release reference.
+- [x] Add `docs/releases/0.3.0.md` and update the README release reference.
 - [ ] Create and push tag `v0.3.0` only after the deployed application passes
   the release smoke test.
 

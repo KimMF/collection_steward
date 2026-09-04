@@ -21,14 +21,16 @@ application's established URLs. Each entry point loads one functional module:
 | `asset-review.php` | `modules/asset-review.php` |
 | `vocabulary.php` | `modules/vocabulary.php` |
 | `users.php` | `modules/users.php` |
+| `admin.php` | `modules/admin.php` |
 | `change-password.php` | `modules/password.php` |
 
 Shared session, database, authorization, request-protection, output, and asset
 naming functions remain in `lib/application.php`.
 
-Current release: 0.1.0 (Pilot Baseline)
+Current release: 0.3.0 (Review, Productions, Measurements, and Fittings)
 
-Release notes are preserved in [`docs/releases`](docs/releases).
+Release notes are preserved in [`docs/releases`](docs/releases). The current
+release is documented in [`docs/releases/0.3.0.md`](docs/releases/0.3.0.md).
 
 The current post-baseline pilot changes and deployment checks are described in
 [`docs/sonya-pilot-improvements.md`](docs/sonya-pilot-improvements.md).
