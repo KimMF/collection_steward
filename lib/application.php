@@ -98,6 +98,7 @@ function collectionStewardUserCan(array $user, string $capability): bool
             'manage_productions',
             'manage_users',
             'manage_vocabulary',
+            'admin_maintenance',
         ],
         'steward' => [
             'intake',

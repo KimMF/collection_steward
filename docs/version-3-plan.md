@@ -130,13 +130,13 @@ The Version 3 fitting is intentionally limited. It is not a costume plot.
 
 ### 6. Administrator data maintenance
 
-- [ ] Add administrator-only search and query views for routine data checking.
-- [ ] Provide validated correction forms for the application records an
+- [x] Add administrator-only search and query views for routine data checking.
+- [x] Provide validated correction forms for the application records an
   administrator is expected to maintain.
-- [ ] Reuse the normal application rules for names, controlled vocabulary,
+- [x] Reuse the normal application rules for names, controlled vocabulary,
   relationships, and audit history.
-- [ ] Do not expose an arbitrary SQL console through the web application.
-- [ ] Do not make normal database maintenance depend on direct phpMyAdmin
+- [x] Do not expose an arbitrary SQL console through the web application.
+- [x] Do not make normal database maintenance depend on direct phpMyAdmin
   editing.
 
 ### 7. Release completion

@@ -2610,6 +2610,141 @@ main.measurements-page {
     padding: 1rem;
 }
 
+.admin-safety-note {
+    background: #fff4d8;
+    border-left: 0.35rem solid #a37716;
+    margin: 1rem 0 1.5rem;
+    padding: 0.8rem 1rem;
+}
+
+.admin-integrity-section,
+.admin-search-section,
+.admin-correction-panel {
+    border-top: 1px solid #d5d1c8;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+}
+
+.admin-check-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.admin-check-card {
+    background: #e7f2ed;
+    border: 1px solid #bdd5cb;
+    border-radius: 0.45rem;
+    color: inherit;
+    display: block;
+    min-width: 0;
+    padding: 0.8rem;
+    text-decoration: none;
+}
+
+.admin-check-card:hover,
+.admin-check-card:focus {
+    border-color: #2f725f;
+    box-shadow: 0 0 0 0.15rem rgba(47, 114, 95, 0.18);
+}
+
+.admin-check-card > strong,
+.admin-check-card > span {
+    display: block;
+}
+
+.admin-check-card > strong {
+    font-size: 1.5rem;
+}
+
+.admin-check-card.has-issue {
+    background: #f9e8e6;
+    border-color: #d9aaa5;
+}
+
+.admin-integrity-details {
+    background: #f8f6f0;
+    border: 1px solid #d5d1c8;
+    border-radius: 0.4rem;
+    margin-top: 1rem;
+    padding: 0.75rem;
+}
+
+.admin-integrity-details > summary {
+    color: #7a2d27;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.admin-search-form {
+    align-items: end;
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(12rem, 0.7fr) minmax(18rem, 1.3fr) auto;
+}
+
+.admin-search-form .field,
+.admin-form-grid .field {
+    margin-bottom: 0;
+}
+
+.admin-form-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 1rem;
+}
+
+.admin-correction-panel {
+    background: #edf5f1;
+    border: 1px solid #bdd5cb;
+    border-left: 0.4rem solid #2f725f;
+    border-radius: 0.45rem;
+    padding: 1rem;
+}
+
+.admin-correction-panel h2 {
+    margin-top: 0;
+}
+
+.admin-correction-panel .confirmation-choice {
+    margin: 1rem 0;
+}
+
+.table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.admin-result-table {
+    border-collapse: collapse;
+    min-width: 54rem;
+    width: 100%;
+}
+
+.admin-result-table th,
+.admin-result-table td {
+    border-bottom: 1px solid #d5d1c8;
+    padding: 0.65rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.admin-result-table thead th {
+    background: #ece8de;
+    position: sticky;
+    top: 0;
+}
+
+.admin-result-table tbody tr:nth-child(even) {
+    background: #f8f6f0;
+}
+
+.admin-result-table code {
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
 @media (max-width: 35rem) {
     .checkout-card {
         display: block;
@@ -2676,6 +2811,15 @@ main.measurements-page {
 
     .fitting-browser {
         position: static;
+    }
+
+    .admin-check-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-search-form,
+    .admin-form-grid {
+        grid-template-columns: 1fr;
     }
 
     .measurement-group-query {
@@ -2748,6 +2892,10 @@ main.measurements-page {
 
     .fitting-print-actions {
         justify-content: stretch;
+    }
+
+    .admin-check-grid {
+        grid-template-columns: 1fr;
     }
 
     .fitting-candidate-photo,

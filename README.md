@@ -54,6 +54,10 @@ The Version 3 pull-list and simple fitting workflow, checkout and tag
 integration, deployment order, and smoke test are documented in
 [`docs/simple-fittings.md`](docs/simple-fittings.md).
 
+The Version 3 administrator-only record searches, integrity checks, validated
+correction forms, and append-only maintenance audit are documented in
+[`docs/administrator-data-maintenance.md`](docs/administrator-data-maintenance.md).
+
 The database-controlled intake fields and vocabulary-review workflow are
 described in
 [`docs/controlled-intake-vocabulary.md`](docs/controlled-intake-vocabulary.md).

@@ -1254,6 +1254,9 @@ $today = (new DateTimeImmutable('today'))->format('Y-m-d');
         <?php if (collectionStewardUserCan($currentUser, 'manage_users')): ?>
             <a href="/users.php">Users</a>
         <?php endif; ?>
+        <?php if (collectionStewardUserCan($currentUser, 'admin_maintenance')): ?>
+            <a href="/admin.php">Data maintenance</a>
+        <?php endif; ?>
         <a href="/change-password.php">Password</a>
     </nav>
 
