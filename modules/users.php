@@ -236,6 +236,7 @@ $users = $userStatement->fetchAll();
             <a href="/productions.php">Productions</a>
         <?php endif; ?>
         <a href="/checkout.php">Production checkout</a>
+        <a href="/fittings.php">Fittings</a>
         <a href="/measurements.php">Measurements</a>
         <a href="/asset-review.php">Asset review</a>
         <a href="/vocabulary.php">Vocabulary</a>

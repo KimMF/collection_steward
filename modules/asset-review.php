@@ -791,6 +791,7 @@ foreach ($conditionFields as $fieldName => $label) {
             <a href="/productions.php">Productions</a>
         <?php endif; ?>
         <a href="/checkout.php">Production checkout</a>
+        <a href="/fittings.php">Fittings</a>
         <a href="/measurements.php">Measurements</a>
         <a href="/asset-review.php" aria-current="page">Asset review</a>
         <?php if (collectionStewardUserCan($currentUser, 'manage_vocabulary')): ?>

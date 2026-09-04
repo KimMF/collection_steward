@@ -2302,6 +2302,314 @@ main.measurements-page {
     font-size: 0.85rem;
 }
 
+.fitting-production-selector {
+    align-items: end;
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(16rem, 30rem) auto;
+    margin-bottom: 1rem;
+}
+
+.fitting-production-selector .field {
+    margin-bottom: 0;
+}
+
+.fitting-workspace {
+    align-items: start;
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: minmax(15rem, 19rem) minmax(0, 1fr);
+}
+
+.fitting-browser,
+.fitting-editor {
+    background: #fff;
+    border: 1px solid #d5d1c8;
+    border-radius: 0.5rem;
+    min-width: 0;
+    padding: 1rem;
+}
+
+.fitting-browser {
+    position: sticky;
+    top: 1rem;
+}
+
+.fitting-browser h2,
+.fitting-editor h2,
+.fitting-editor h3 {
+    margin-top: 0;
+}
+
+.fitting-list {
+    border: 1px solid #d5d1c8;
+    border-radius: 0.4rem;
+    overflow: hidden;
+}
+
+.fitting-list-row {
+    color: inherit;
+    display: block;
+    padding: 0.65rem;
+    text-decoration: none;
+}
+
+.fitting-list-row + .fitting-list-row {
+    border-top: 1px solid #d5d1c8;
+}
+
+.fitting-list-row:hover,
+.fitting-list-row:focus,
+.fitting-list-row.is-current {
+    background: #e7f2ed;
+}
+
+.fitting-list-row span {
+    color: #555;
+    display: block;
+    font-size: 0.82rem;
+    margin-top: 0.18rem;
+}
+
+.new-fitting-panel,
+.fitting-details-panel,
+.fitting-result-form {
+    background: #f8f6f0;
+    border: 1px solid #d5d1c8;
+    border-radius: 0.4rem;
+    margin-top: 1rem;
+    padding: 0.75rem;
+}
+
+.new-fitting-panel > summary,
+.fitting-details-panel > summary,
+.fitting-result-form > summary {
+    color: #164f45;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.new-fitting-panel form,
+.fitting-details-panel form,
+.fitting-result-form form {
+    margin-top: 0.85rem;
+}
+
+.fitting-header {
+    align-items: start;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+}
+
+.fitting-header p {
+    margin-bottom: 0;
+}
+
+.fitting-print-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.fitting-measurement-link,
+.fitting-completion-record {
+    background: #e7f2ed;
+    border-left: 0.3rem solid #2f725f;
+    margin: 1rem 0 0;
+    padding: 0.65rem 0.75rem;
+}
+
+.reopen-fitting-form {
+    margin-top: 0.75rem;
+}
+
+.add-fitting-candidate,
+.fitting-pull-list,
+.complete-fitting-panel {
+    border-top: 1px solid #d5d1c8;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+}
+
+.fitting-add-form {
+    align-items: end;
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.fitting-add-form .field {
+    margin-bottom: 0;
+}
+
+.fitting-candidate-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.fitting-candidate-group + .fitting-candidate-group {
+    margin-top: 1.25rem;
+}
+
+.fitting-candidate-group-heading {
+    align-items: center;
+    background: #eeeae1;
+    border-left: 0.3rem solid #6d685f;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.65rem;
+    padding: 0.55rem 0.7rem;
+}
+
+.fitting-candidate-group-selected_for_wear .fitting-candidate-group-heading {
+    background: #e7f2ed;
+    border-left-color: #2f725f;
+}
+
+.fitting-candidate-group-not_selected .fitting-candidate-group-heading {
+    background: #f1efea;
+    border-left-color: #777169;
+}
+
+.fitting-no-selection {
+    background: #f1efea;
+    border-left: 0.3rem solid #777169;
+    padding: 0.65rem 0.75rem;
+}
+
+.fitting-candidate {
+    border: 1px solid #c7c4bc;
+    border-radius: 0.5rem;
+    padding: 0.85rem;
+}
+
+.fitting-candidate.is-pending {
+    border-color: #b9881b;
+    box-shadow: inset 0.25rem 0 #b9881b;
+}
+
+.fitting-candidate:target {
+    border-color: #2f725f;
+    box-shadow: 0 0 0 0.25rem rgba(47, 114, 95, 0.2);
+}
+
+.fitting-candidate-identification {
+    display: grid;
+    gap: 0.85rem;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+}
+
+.fitting-candidate-identification h4 {
+    margin: 0.15rem 0 0.65rem;
+}
+
+.fitting-candidate-photo,
+.fitting-photo-placeholder {
+    align-items: center;
+    background: #eeeae1;
+    border-radius: 0.35rem;
+    display: flex;
+    height: 9rem;
+    justify-content: center;
+    object-fit: cover;
+    width: 7.5rem;
+}
+
+.fitting-photo-placeholder {
+    color: #666;
+    font-size: 0.82rem;
+    text-align: center;
+}
+
+.fitting-asset-facts {
+    display: grid;
+    gap: 0.35rem 0.75rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+}
+
+.fitting-asset-facts div {
+    min-width: 0;
+}
+
+.fitting-asset-facts dt {
+    color: #555;
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.fitting-asset-facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.fitting-result-summary {
+    background: #edf5f1;
+    border-radius: 0.35rem;
+    margin-top: 0.8rem;
+    padding: 0.65rem;
+}
+
+.fitting-result-summary > strong,
+.fitting-result-summary > span,
+.fitting-result-summary > small {
+    display: block;
+}
+
+.fitting-result-summary > span,
+.fitting-result-summary > small {
+    margin-top: 0.3rem;
+}
+
+.fitting-result-summary > span {
+    color: #245f50;
+    font-weight: 700;
+}
+
+.fitting-result-summary p {
+    margin-bottom: 0;
+    overflow-wrap: anywhere;
+}
+
+.fitting-result-summary small {
+    color: #555;
+}
+
+.fitting-result-tags {
+    margin-top: 0.85rem;
+}
+
+.fitting-result-tags .checkbox-grid {
+    display: grid;
+    gap: 0.4rem 0.75rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.fitting-result-tags .checkbox-grid label {
+    align-items: flex-start;
+    display: flex;
+    font-size: 0.86rem;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.fitting-result-tags .checkbox-grid input {
+    flex: 0 0 auto;
+    height: 1.1rem;
+    margin-top: 0.05rem;
+    width: 1.1rem;
+}
+
+.complete-fitting-panel {
+    background: #edf5f1;
+    border: 1px solid #bdd5cb;
+    border-radius: 0.45rem;
+    padding: 1rem;
+}
+
 @media (max-width: 35rem) {
     .checkout-card {
         display: block;
@@ -2332,6 +2640,7 @@ main.measurements-page {
     .production-workspace,
     .production-measurement-workspace,
     .measurement-workspace,
+    .fitting-workspace,
     .review-field-grid,
     .review-condition-grid {
         grid-template-columns: 1fr;
@@ -2363,6 +2672,10 @@ main.measurements-page {
 
     .measurement-workspace.is-compact-view {
         grid-template-columns: 1fr;
+    }
+
+    .fitting-browser {
+        position: static;
     }
 
     .measurement-group-query {
@@ -2415,6 +2728,33 @@ main.measurements-page {
     .measurement-view-controls,
     .sticky-save-row {
         display: block;
+    }
+
+    .fitting-production-selector,
+    .fitting-add-form,
+    .fitting-candidate-identification,
+    .fitting-asset-facts,
+    .fitting-result-tags .checkbox-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .fitting-header {
+        display: block;
+    }
+
+    .fitting-print-button {
+        margin-top: 0.75rem;
+    }
+
+    .fitting-print-actions {
+        justify-content: stretch;
+    }
+
+    .fitting-candidate-photo,
+    .fitting-photo-placeholder {
+        height: auto;
+        max-height: 18rem;
+        width: 100%;
     }
 
     .review-asset-photo {
@@ -2844,5 +3184,80 @@ main.measurements-page {
     .production-session-print-table tbody th,
     .production-session-print-table tbody td {
         height: 0.3in;
+    }
+
+    main.fittings-page {
+        max-width: none;
+        min-height: 0;
+        padding: 0;
+    }
+
+    .fittings-page > nav,
+    .fittings-page > .page-heading,
+    .fittings-page > .notice,
+    .fittings-page > .error,
+    .fitting-production-selector,
+    .fitting-browser,
+    .fitting-print-button,
+    .fitting-details-panel,
+    .reopen-fitting-form,
+    .add-fitting-candidate,
+    .fitting-result-form,
+    .complete-fitting-panel {
+        display: none !important;
+    }
+
+    .fitting-workspace {
+        display: block;
+    }
+
+    .fitting-editor {
+        border: 0;
+        padding: 0;
+    }
+
+    .fitting-header {
+        border-bottom: 2px solid #333;
+        margin-bottom: 0.15in;
+        padding-bottom: 0.1in;
+    }
+
+    .fitting-candidate-list {
+        gap: 0.12in;
+    }
+
+    .fitting-candidate {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        padding: 0.08in;
+    }
+
+    .fitting-candidate-identification {
+        gap: 0.1in;
+        grid-template-columns: 0.8in minmax(0, 1fr);
+    }
+
+    .fitting-candidate-photo,
+    .fitting-photo-placeholder {
+        height: 0.9in;
+        width: 0.8in;
+    }
+
+    .fitting-result-summary {
+        margin-top: 0.06in;
+        min-height: 0.28in;
+        padding: 0.06in;
+    }
+
+    .fitting-candidate a {
+        color: #000;
+        text-decoration: none;
+    }
+
+    .print-selected-fitting-assets .fitting-pull-list > .section-heading,
+    .print-selected-fitting-assets .fitting-no-selection,
+    .print-selected-fitting-assets .fitting-candidate-group-pending,
+    .print-selected-fitting-assets .fitting-candidate-group-not_selected {
+        display: none !important;
     }
 }

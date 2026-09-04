@@ -111,6 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
             <?php if (collectionStewardUserCan($currentUser, 'checkout')): ?>
                 <a href="/checkout.php">Production checkout</a>
+                <a href="/fittings.php">Fittings</a>
             <?php endif; ?>
             <?php if (collectionStewardUserCan($currentUser, 'measurements')): ?>
                 <a href="/measurements.php">Measurements</a>

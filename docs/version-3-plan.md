@@ -94,24 +94,24 @@ The starting point for this work is the tagged `v0.2.2` release.
 
 The Version 3 fitting is intentionally limited. It is not a costume plot.
 
-- [ ] Choose one production and one actor/character for the fitting.
-- [ ] Create a pull list containing one or more candidate assets for that
+- [x] Choose one production and one actor/character for the fitting.
+- [x] Create a pull list containing one or more candidate assets for that
   individual to try on.
-- [ ] Display enough asset information to locate and identify every item on the
+- [x] Display enough asset information to locate and identify every item on the
   pull list.
-- [ ] Record the result for each tried asset in the database.
-- [ ] Preserve any text written on the physical fitting tag as a fitting note.
-- [ ] Support **Selected for wear** as a result and check that asset out through
+- [x] Record the result for each tried asset in the database.
+- [x] Preserve any text written on the physical fitting tag as a fitting note.
+- [x] Support **Selected for wear** as a result and check that asset out through
   the existing production-checkout workflow.
-- [ ] Support results that assign **Needs alteration**, **Needs laundering**,
+- [x] Support results that assign **Needs alteration**, **Needs laundering**,
   and **Needs repair** through the existing tagging system, adding a missing
   tag to the controlled vocabulary when necessary.
-- [ ] Permit other fitting results through that same tagging system rather
+- [x] Permit other fitting results through that same tagging system rather
   than restricting the workflow to only the initial examples.
-- [ ] Leave an asset available when it is not selected for wear, while
+- [x] Leave an asset available when it is not selected for wear, while
   retaining its fitting history.
-- [ ] Mark the fitting complete after the candidate assets have been recorded.
-- [ ] Where applicable, connect the completed fitting to its production
+- [x] Mark the fitting complete after the candidate assets have been recorded.
+- [x] Where applicable, connect the completed fitting to its production
   measurement session.
 
 ### 5. Immutable measurement change history

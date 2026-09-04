@@ -695,6 +695,7 @@ if (!is_string($assetBrowserJson)) {
             <?php endif; ?>
             <?php if ($canUseCheckout): ?>
                 <a href="/checkout.php">Production checkout</a>
+                <a href="/fittings.php">Fittings</a>
             <?php endif; ?>
             <?php if ($canUseMeasurements): ?>
                 <a href="/measurements.php">Measurements</a>

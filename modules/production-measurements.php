@@ -1285,6 +1285,7 @@ if ($selectedSession !== null) {
             <a href="/productions.php">Productions</a>
         <?php endif; ?>
         <a href="/checkout.php">Production checkout</a>
+        <a href="/fittings.php">Fittings</a>
         <a href="/measurements.php">Measurements</a>
         <?php if (collectionStewardUserCan($currentUser, 'manage_assets')): ?>
             <a href="/asset-review.php">Asset review</a>

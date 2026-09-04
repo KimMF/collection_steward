@@ -590,6 +590,7 @@ if (is_int($createdAssetId) && $createdAssetId > 0) {
         <?php endif; ?>
         <?php if (collectionStewardUserCan($currentUser, 'checkout')): ?>
             <a href="/checkout.php">Production checkout</a>
+            <a href="/fittings.php">Fittings</a>
         <?php endif; ?>
         <?php if (collectionStewardUserCan($currentUser, 'measurements')): ?>
             <a href="/measurements.php">Measurements</a>

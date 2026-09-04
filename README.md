@@ -15,6 +15,7 @@ application's established URLs. Each entry point loads one functional module:
 | `intake.php` | `modules/intake.php` |
 | `productions.php` | `modules/productions.php` |
 | `checkout.php` | `modules/production-checkout.php` |
+| `fittings.php` | `modules/fittings.php` |
 | `measurements.php` | `modules/measurements.php` |
 | `production-measurements.php` | `modules/production-measurements.php` |
 | `asset-review.php` | `modules/asset-review.php` |
@@ -48,6 +49,10 @@ actor-specific fields, deployment order, and smoke test are documented in
 The Version 3 append-only measurement-value history, baseline migration,
 deployment order, and smoke test are documented in
 [`docs/measurement-change-history.md`](docs/measurement-change-history.md).
+
+The Version 3 pull-list and simple fitting workflow, checkout and tag
+integration, deployment order, and smoke test are documented in
+[`docs/simple-fittings.md`](docs/simple-fittings.md).
 
 The database-controlled intake fields and vocabulary-review workflow are
 described in

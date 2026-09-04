@@ -340,6 +340,7 @@ $pendingSuggestions = $pendingSuggestionStatement->fetchAll();
             <a href="/productions.php">Productions</a>
         <?php endif; ?>
         <a href="/checkout.php">Production checkout</a>
+        <a href="/fittings.php">Fittings</a>
         <?php if (collectionStewardUserCan($currentUser, 'measurements')): ?>
             <a href="/measurements.php">Measurements</a>
         <?php endif; ?>

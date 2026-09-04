@@ -1021,6 +1021,7 @@ if (
         <a href="/intake.php">Intake</a>
         <a href="/productions.php" aria-current="page">Productions</a>
         <a href="/checkout.php">Production checkout</a>
+        <a href="/fittings.php">Fittings</a>
         <a href="/measurements.php">Measurements</a>
         <?php if (collectionStewardUserCan($currentUser, 'manage_assets')): ?>
             <a href="/asset-review.php">Asset review</a>
@@ -1159,6 +1160,7 @@ if (
                         <?php if (in_array($selectedProduction['status'], ['planned', 'active'], true)): ?>
                             <a class="button" href="/checkout.php?production_id=<?= (int) $selectedProduction['id'] ?>">Open checkout</a>
                         <?php endif; ?>
+                        <a class="button secondary" href="/fittings.php?production_id=<?= (int) $selectedProduction['id'] ?>">Open fittings</a>
                         <a class="button secondary" href="/production-measurements.php?production_id=<?= (int) $selectedProduction['id'] ?>"><?= in_array($selectedProduction['status'], ['planned', 'active'], true) ? 'Plan measurements' : 'Production sessions' ?></a>
                         <a class="button secondary" href="/measurements.php?view=compact&amp;scope=group&amp;group_production_id=<?= (int) $selectedProduction['id'] ?>">Open measurements</a>
                     </div>
