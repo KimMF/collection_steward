@@ -184,6 +184,7 @@ function measurementSession(
             ms.id AS measurement_session_id,
             ms.person_id,
             ms.production_id,
+            ms.production_measurement_session_id,
             ms.measured_on,
             ms.date_precision,
             ms.session_sequence,
@@ -196,6 +197,7 @@ function measurementSession(
             pr.name AS production_name,
             pr.production_year,
             ve.name AS venue_name,
+            pms.session_name AS production_measurement_session_name,
             measured_by.display_name AS measured_by,
             (
                 SELECT GROUP_CONCAT(
@@ -225,6 +227,8 @@ function measurementSession(
             ON pr.id = ms.production_id
          LEFT JOIN venues AS ve
             ON ve.id = pr.venue_id
+         LEFT JOIN production_measurement_sessions AS pms
+            ON pms.id = ms.production_measurement_session_id
          LEFT JOIN users AS measured_by
             ON measured_by.id = ms.measured_by_user_id
          WHERE ms.id = :measurement_session_id
@@ -776,6 +780,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 $notes = measurementText($_POST, 'notes');
 
+                if ($session['production_measurement_session_id'] !== null) {
+                    $productionId = (int) $session['production_id'];
+                    $measuredOn = (string) $session['measured_on'];
+                    $datePrecision = (string) $session['date_precision'];
+                }
+
                 if ($firstName === '') {
                     throw new DomainException('Enter the actor’s first name.');
                 }
@@ -868,17 +878,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $typeStatement = $connection->prepare(
                     'SELECT id, code, name, value_kind
                      FROM measurement_types AS mt
-                     WHERE mt.is_active = 1
+                     WHERE (
+                            :is_group_session = 0
+                            AND mt.is_active = 1
+                        )
+                        OR EXISTS (
+                            SELECT 1
+                            FROM measurement_session_templates AS mst
+                            JOIN measurement_template_items AS mti
+                               ON mti.template_id = mst.measurement_template_id
+                            WHERE mst.measurement_session_id = :template_session_id
+                              AND mti.measurement_type_id = mt.id
+                        )
+                        OR EXISTS (
+                            SELECT 1
+                            FROM measurement_session_additional_types AS msat
+                            WHERE msat.measurement_session_id = :additional_session_id
+                              AND msat.measurement_type_id = mt.id
+                        )
                         OR EXISTS (
                             SELECT 1
                             FROM measurement_values AS existing_value
                             WHERE existing_value.measurement_type_id = mt.id
-                              AND existing_value.measurement_session_id = :measurement_session_id
+                              AND existing_value.measurement_session_id = :value_session_id
                         )
                      ORDER BY mt.display_order, mt.name'
                 );
                 $typeStatement->execute([
-                    'measurement_session_id' => $postedSessionId,
+                    'is_group_session' =>
+                        $session['production_measurement_session_id'] === null
+                            ? 0
+                            : 1,
+                    'template_session_id' => $postedSessionId,
+                    'additional_session_id' => $postedSessionId,
+                    'value_session_id' => $postedSessionId,
                 ]);
                 $types = $typeStatement->fetchAll();
 
@@ -1527,17 +1560,47 @@ if ($requestedSessionId !== null) {
                 mv.needs_review,
                 mv.review_notes,
                 mv.source_import_cell_id,
-                mv.reviewed_at
+                mv.reviewed_at,
+                EXISTS (
+                    SELECT 1
+                    FROM measurement_session_additional_types AS msat_flag
+                    WHERE msat_flag.measurement_session_id = :additional_flag_session_id
+                      AND msat_flag.measurement_type_id = mt.id
+                ) AS is_actor_specific
              FROM measurement_types AS mt
              LEFT JOIN measurement_values AS mv
                 ON mv.measurement_type_id = mt.id
                AND mv.measurement_session_id = :measurement_session_id
-             WHERE mt.is_active = 1
+             WHERE (
+                    :is_group_session = 0
+                    AND mt.is_active = 1
+                )
+                OR EXISTS (
+                    SELECT 1
+                    FROM measurement_session_templates AS mst
+                    JOIN measurement_template_items AS mti
+                       ON mti.template_id = mst.measurement_template_id
+                    WHERE mst.measurement_session_id = :template_session_id
+                      AND mti.measurement_type_id = mt.id
+                )
+                OR EXISTS (
+                    SELECT 1
+                    FROM measurement_session_additional_types AS msat
+                    WHERE msat.measurement_session_id = :additional_session_id
+                      AND msat.measurement_type_id = mt.id
+                )
                 OR mv.id IS NOT NULL
              ORDER BY mt.display_order, mt.name'
         );
         $measurementStatement->execute([
             'measurement_session_id' => $requestedSessionId,
+            'additional_flag_session_id' => $requestedSessionId,
+            'is_group_session' =>
+                $selectedSession['production_measurement_session_id'] === null
+                    ? 0
+                    : 1,
+            'template_session_id' => $requestedSessionId,
+            'additional_session_id' => $requestedSessionId,
         ]);
         $selectedMeasurements = $measurementStatement->fetchAll();
 
@@ -2035,7 +2098,7 @@ $groupScopeLinkParameters['scope'] = 'group';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Actor measurements — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260902-4">
+    <link rel="stylesheet" href="/app.css?v=20260904-1">
 </head>
 <body>
 <main class="measurements-page">
@@ -2071,6 +2134,10 @@ $groupScopeLinkParameters['scope'] = 'group';
                 <button type="submit" name="action" value="logout" class="secondary">Sign out</button>
             </form>
         </div>
+    </div>
+
+    <div class="button-row measurement-page-actions">
+        <a class="button secondary" href="/production-measurements.php">Production measurement sessions</a>
     </div>
 
     <?php if ($notice !== null): ?>
@@ -2272,7 +2339,12 @@ $groupScopeLinkParameters['scope'] = 'group';
                             <?php endif; ?>
                         </p>
                     </div>
-                    <span class="session-reference">Session <?= (int) $selectedSession['measurement_session_id'] ?></span>
+                    <div class="measurement-session-reference-actions">
+                        <span class="session-reference">Session <?= (int) $selectedSession['measurement_session_id'] ?></span>
+                        <?php if ($selectedSession['production_measurement_session_id'] !== null): ?>
+                            <a href="/production-measurements.php?session_id=<?= (int) $selectedSession['production_measurement_session_id'] ?>">Open production session</a>
+                        <?php endif; ?>
+                    </div>
                 </header>
 
                 <div class="measurement-view-controls">
@@ -2616,7 +2688,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                 <?php else: ?>
 
                 <details class="session-details-panel">
-                    <summary>Edit actor, production, date, or notes</summary>
+                    <summary><?= $selectedSession['production_measurement_session_id'] === null ? 'Edit actor, production, date, or notes' : 'Edit actor or notes' ?></summary>
                     <form method="post" class="session-details-form">
                         <input type="hidden" name="csrf_token" value="<?= collectionStewardEscape($csrfToken) ?>">
                         <input type="hidden" name="action" value="save_session_details">
@@ -2630,34 +2702,42 @@ $groupScopeLinkParameters['scope'] = 'group';
                             <label for="last_name">Last name</label>
                             <input type="text" id="last_name" name="last_name" maxlength="100" value="<?= collectionStewardEscape($selectedSession['last_name']) ?>">
                         </div>
-                        <div class="field">
-                            <label for="session_production_id">Production</label>
-                            <select id="session_production_id" name="production_id">
-                                <option value="">General fitting / no production</option>
-                                <?php foreach ($productions as $production): ?>
-                                    <option value="<?= (int) $production['id'] ?>" <?= (int) $production['id'] === (int) $selectedSession['production_id'] ? 'selected' : '' ?>>
-                                        <?= collectionStewardEscape(measurementProductionLabel($production)) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="field">
-                            <label for="measured_on">Stored date</label>
-                            <input type="date" id="measured_on" name="measured_on" value="<?= collectionStewardEscape($selectedSession['measured_on']) ?>" required>
-                        </div>
-                        <div class="field">
-                            <label for="date_precision">How exact is the date?</label>
-                            <select id="date_precision" name="date_precision">
-                                <?php foreach ([
-                                    'day' => 'Exact day',
-                                    'month' => 'Month only',
-                                    'year' => 'Year only',
-                                    'unknown' => 'Date uncertain',
-                                ] as $precision => $label): ?>
-                                    <option value="<?= $precision ?>" <?= $selectedSession['date_precision'] === $precision ? 'selected' : '' ?>><?= $label ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
+                        <?php if ($selectedSession['production_measurement_session_id'] === null): ?>
+                            <div class="field">
+                                <label for="session_production_id">Production</label>
+                                <select id="session_production_id" name="production_id">
+                                    <option value="">General fitting / no production</option>
+                                    <?php foreach ($productions as $production): ?>
+                                        <option value="<?= (int) $production['id'] ?>" <?= (int) $production['id'] === (int) $selectedSession['production_id'] ? 'selected' : '' ?>>
+                                            <?= collectionStewardEscape(measurementProductionLabel($production)) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="measured_on">Stored date</label>
+                                <input type="date" id="measured_on" name="measured_on" value="<?= collectionStewardEscape($selectedSession['measured_on']) ?>" required>
+                            </div>
+                            <div class="field">
+                                <label for="date_precision">How exact is the date?</label>
+                                <select id="date_precision" name="date_precision">
+                                    <?php foreach ([
+                                        'day' => 'Exact day',
+                                        'month' => 'Month only',
+                                        'year' => 'Year only',
+                                        'unknown' => 'Date uncertain',
+                                    ] as $precision => $label): ?>
+                                        <option value="<?= $precision ?>" <?= $selectedSession['date_precision'] === $precision ? 'selected' : '' ?>><?= $label ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        <?php else: ?>
+                            <div class="field production-session-fixed-detail">
+                                <span class="label">Production session</span>
+                                <strong><?= collectionStewardEscape($selectedSession['production_measurement_session_name']) ?></strong>
+                                <span class="help">Production and date are controlled by the grouped session.</span>
+                            </div>
+                        <?php endif; ?>
                         <div class="field session-notes-field">
                             <label for="session_notes">Session notes</label>
                             <textarea id="session_notes" name="notes" maxlength="5000"><?= collectionStewardEscape($selectedSession['notes']) ?></textarea>
@@ -2731,6 +2811,9 @@ $groupScopeLinkParameters['scope'] = 'group';
                             <article id="measurement-card-<?= $measurementTypeId ?>" class="measurement-value-card <?= $isFlagged ? 'needs-review' : '' ?>">
                                 <div class="measurement-value-heading">
                                     <label for="measurement_<?= $measurementTypeId ?>"><?= collectionStewardEscape($measurement['name']) ?></label>
+                                    <?php if ((int) $measurement['is_actor_specific'] === 1): ?>
+                                        <span class="actor-specific-flag">Actor only</span>
+                                    <?php endif; ?>
                                     <?php if ($isFlagged): ?>
                                         <span class="review-flag">Review</span>
                                     <?php endif; ?>

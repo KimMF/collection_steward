@@ -75,19 +75,19 @@ The starting point for this work is the tagged `v0.2.2` release.
 
 ### 3. Production measurement sessions and templates
 
-- [ ] Allow more than one measurement session for a production.
-- [ ] Start a production measurement session by selecting the participating
+- [x] Allow more than one measurement session for a production.
+- [x] Start a production measurement session by selecting the participating
   cast members.
-- [ ] Choose an existing measurement template or create a reusable template.
-- [ ] Allow additional actor-specific measurements without changing the shared
+- [x] Choose an existing measurement template or create a reusable template.
+- [x] Allow additional actor-specific measurements without changing the shared
   template for everyone else.
-- [ ] Create an individual dated measurement record for each participating
+- [x] Create an individual dated measurement record for each participating
   actor while keeping the records connected to the production session.
-- [ ] Generate a blank printable spreadsheet for the selected cast and
+- [x] Generate a blank printable spreadsheet for the selected cast and
   measurement columns.
-- [ ] Keep the existing individual, unscheduled **Record a new measurement
+- [x] Keep the existing individual, unscheduled **Record a new measurement
   session** workflow.
-- [ ] Preserve the existing compact and expanded measurement views and current
+- [x] Preserve the existing compact and expanded measurement views and current
   printable worksheets.
 
 ### 4. Simple fitting workflow

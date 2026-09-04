@@ -938,6 +938,367 @@ section,
     margin-top: 1rem;
 }
 
+main.production-measurements-page {
+    max-width: 96rem;
+}
+
+.production-measurement-top-actions,
+.measurement-page-actions {
+    margin: 0 0 1.25rem;
+}
+
+.production-measurement-workspace {
+    align-items: start;
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: minmax(20rem, 0.75fr) minmax(34rem, 1.75fr);
+}
+
+.production-measurement-sidebar,
+.production-measurement-editor {
+    border: 1px solid #c7c4bc;
+    border-radius: 0.55rem;
+    padding: 1rem;
+}
+
+.production-measurement-sidebar {
+    background: #faf9f5;
+}
+
+.production-measurement-session-list {
+    display: grid;
+    gap: 0.3rem;
+    max-height: 29rem;
+    overflow-y: auto;
+}
+
+.production-measurement-session-link {
+    border: 2px solid transparent;
+    border-radius: 0.4rem;
+    color: inherit;
+    display: grid;
+    padding: 0.6rem;
+    text-decoration: none;
+}
+
+.production-measurement-session-link:hover,
+.production-measurement-session-link:focus,
+.production-measurement-session-link.is-current {
+    background: #e7f2ed;
+    border-color: #2f725f;
+    outline: none;
+}
+
+.production-measurement-session-link span,
+.production-measurement-session-link small,
+.production-measurement-template-list small {
+    color: #555;
+}
+
+.production-measurement-create,
+.production-measurement-details,
+.production-measurement-print-columns,
+.production-measurement-actor-fields {
+    border-top: 1px solid #d5d1c8;
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+}
+
+.production-measurement-create summary,
+.production-measurement-details summary,
+.production-measurement-print-columns summary,
+.production-measurement-actor-fields summary {
+    color: #214f45;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.production-measurement-create form,
+.production-measurement-details form,
+.production-measurement-actor-fields form {
+    margin-top: 1rem;
+}
+
+.production-measurement-cast-picker {
+    border: 1px solid #aaa;
+    border-radius: 0.35rem;
+    margin-bottom: 1.25rem;
+    padding: 0.75rem;
+}
+
+.production-measurement-cast-picker .section-heading {
+    margin-bottom: 0.65rem;
+}
+
+.production-measurement-cast-picker .button-row button,
+.production-measurement-print-columns .button-row button {
+    min-height: 0;
+    padding: 0.4rem 0.6rem;
+}
+
+.production-cast-choice-group {
+    border: 0;
+    display: grid;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+}
+
+.production-cast-choice {
+    align-items: flex-start;
+    background: #fff;
+    border: 1px solid #d5d1c8;
+    border-radius: 0.35rem;
+    cursor: pointer;
+    display: flex;
+    gap: 0.55rem;
+    padding: 0.55rem;
+}
+
+.production-cast-choice:has(input:checked) {
+    background: #e7f2ed;
+    border-color: #2f725f;
+}
+
+.production-cast-choice input {
+    height: 1.1rem;
+    margin-top: 0.2rem;
+    width: 1.1rem;
+}
+
+.production-cast-choice span,
+.production-measurement-template-list article {
+    display: grid;
+}
+
+.production-cast-choice small {
+    color: #555;
+}
+
+.template-measurement-options {
+    display: grid;
+    gap: 0.35rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.template-measurement-options label {
+    align-items: flex-start;
+    display: flex;
+    gap: 0.45rem;
+}
+
+.template-measurement-options input {
+    flex: 0 0 auto;
+    margin-top: 0.3rem;
+}
+
+.production-measurement-template-list {
+    display: grid;
+    gap: 0.7rem;
+    margin-top: 0.8rem;
+}
+
+.production-measurement-template-list article {
+    background: #fff;
+    border: 1px solid #d5d1c8;
+    border-radius: 0.35rem;
+    padding: 0.65rem;
+}
+
+.production-measurement-template-list p {
+    font-size: 0.88rem;
+    margin: 0.35rem 0 0;
+}
+
+.production-measurement-record-heading,
+.production-measurement-participant-heading {
+    align-items: flex-start;
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+}
+
+.production-measurement-record-heading h2 {
+    margin: 0.35rem 0 0.15rem;
+}
+
+.production-measurement-record-heading p {
+    margin: 0;
+}
+
+.production-measurement-status-planned {
+    background: #fff0c9;
+    color: #6d5009;
+}
+
+.production-measurement-status-completed {
+    background: #dfe9f5;
+    color: #244e77;
+}
+
+.production-measurement-summary {
+    background: #e7f2ed;
+    border-radius: 0.45rem;
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 1rem 0;
+}
+
+.production-measurement-summary > div {
+    border-left: 1px solid #b5ccc3;
+    display: grid;
+    padding: 0.75rem;
+}
+
+.production-measurement-summary > div:first-child {
+    border-left: 0;
+}
+
+.production-measurement-summary span {
+    color: #555;
+    font-size: 0.82rem;
+}
+
+.production-measurement-details form {
+    max-width: 42rem;
+}
+
+.production-measurement-worksheet {
+    border-bottom: 1px solid #d5d1c8;
+    border-top: 1px solid #d5d1c8;
+    margin: 1.5rem 0;
+    padding: 1rem 0;
+}
+
+.production-measurement-print-columns {
+    background: #faf9f5;
+    border: 1px solid #d5d1c8;
+    border-radius: 0.4rem;
+    margin-bottom: 0.75rem;
+    padding: 0.65rem;
+}
+
+.production-measurement-print-columns .button-row {
+    margin: 0.6rem 0;
+}
+
+.production-measurement-table-scroll {
+    border: 1px solid #c7c4bc;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.production-measurement-table {
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    min-width: 100%;
+}
+
+.production-measurement-table th,
+.production-measurement-table td {
+    border-bottom: 1px solid #d5d1c8;
+    border-right: 1px solid #d5d1c8;
+    min-width: 7rem;
+    padding: 0.5rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.production-measurement-table th:first-child {
+    background: #f8f6f0;
+    left: 0;
+    min-width: 10rem;
+    position: sticky;
+    z-index: 1;
+}
+
+.production-measurement-table thead th {
+    background: #e7f2ed;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.production-measurement-table thead th:first-child {
+    z-index: 3;
+}
+
+.production-measurement-table th small {
+    color: #555;
+    display: block;
+    font-weight: 500;
+}
+
+.measurement-blank-cell {
+    background: #fff;
+    height: 2rem;
+}
+
+.measurement-not-applicable-cell {
+    background: #eceae5;
+    color: #777;
+    text-align: center !important;
+}
+
+.production-measurement-participant-list {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.production-measurement-participant-card {
+    border: 1px solid #c7c4bc;
+    border-radius: 0.45rem;
+    padding: 0.8rem;
+}
+
+.production-measurement-participant-heading h4,
+.production-measurement-participant-heading p {
+    margin: 0 0 0.2rem;
+}
+
+.production-measurement-participant-heading small {
+    color: #555;
+}
+
+.production-measurement-empty-state {
+    padding: 4rem 1rem;
+    text-align: center;
+}
+
+.production-session-print-heading,
+.production-session-print-pages {
+    display: none;
+}
+
+.measurement-session-reference-actions {
+    align-items: flex-end;
+    display: grid;
+    flex: 0 0 auto;
+    justify-items: end;
+}
+
+.measurement-session-reference-actions a {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.production-session-fixed-detail {
+    background: #f8f6f0;
+    border-radius: 0.35rem;
+    padding: 0.65rem;
+}
+
+.actor-specific-flag {
+    background: #dfe9f5;
+    border-radius: 999px;
+    color: #244e77;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 0.15rem 0.45rem;
+    text-transform: uppercase;
+}
+
 .venue-card {
     border: 1px solid #c7c4bc;
     border-radius: 0.45rem;
@@ -1862,6 +2223,7 @@ main.measurements-page {
     .browser-filters,
     .saved-asset-card,
     .production-workspace,
+    .production-measurement-workspace,
     .measurement-workspace,
     .review-field-grid,
     .review-condition-grid {
@@ -1870,6 +2232,12 @@ main.measurements-page {
 
     .production-record-heading {
         display: block;
+    }
+
+    .production-measurement-record-heading,
+    .production-measurement-participant-heading {
+        align-items: stretch;
+        display: grid;
     }
 
     .production-record-heading .button-row {
@@ -1952,6 +2320,25 @@ main.measurements-page {
     .production-date-grid,
     .venue-form {
         grid-template-columns: 1fr;
+    }
+
+    .template-measurement-options,
+    .production-measurement-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .production-measurement-summary > div {
+        border-left: 0;
+        border-top: 1px solid #b5ccc3;
+    }
+
+    .production-measurement-summary > div:first-child {
+        border-top: 0;
+    }
+
+    .measurement-session-reference-actions {
+        justify-items: start;
+        margin-top: 0.65rem;
     }
 
     .venue-form .field {
@@ -2267,6 +2654,81 @@ main.measurements-page {
 
     .print-blank-worksheet .compact-measurement-table tbody th,
     .print-blank-worksheet .compact-measurement-table tbody td {
+        height: 0.3in;
+    }
+
+    .print-production-session-worksheet main.production-measurements-page {
+        max-width: none;
+        padding: 0;
+    }
+
+    .print-production-session-worksheet .production-measurements-page > nav,
+    .print-production-session-worksheet .production-measurements-page > .page-heading,
+    .print-production-session-worksheet .production-measurement-top-actions,
+    .print-production-session-worksheet .notice,
+    .print-production-session-worksheet .error,
+    .print-production-session-worksheet .production-measurement-workspace {
+        display: none !important;
+    }
+
+    .print-production-session-worksheet .production-session-print-pages {
+        display: block;
+    }
+
+    .production-session-print-page {
+        break-after: page;
+        page-break-after: always;
+    }
+
+    .production-session-print-page:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+
+    .production-session-print-page .production-session-print-heading {
+        display: block;
+        margin-bottom: 0.18in;
+    }
+
+    .production-session-print-heading h1 {
+        font-size: 16pt;
+        margin: 0;
+    }
+
+    .production-session-print-heading p {
+        font-size: 10pt;
+        margin: 0.03in 0 0;
+    }
+
+    .production-session-print-heading .print-measurement-range {
+        font-size: 8pt;
+    }
+
+    .production-session-print-table {
+        border-collapse: separate;
+        border-left: 1px solid #777;
+        border-spacing: 0;
+        border-top: 1px solid #777;
+        font-size: 8pt;
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    .production-session-print-table th,
+    .production-session-print-table td,
+    .production-session-print-table th:first-child,
+    .production-session-print-table thead th {
+        border: 0;
+        border-bottom: 1px solid #777;
+        border-right: 1px solid #777;
+        box-sizing: border-box;
+        min-width: 0;
+        padding: 0.07in 0.04in;
+        position: static;
+    }
+
+    .production-session-print-table tbody th,
+    .production-session-print-table tbody td {
         height: 0.3in;
     }
 }

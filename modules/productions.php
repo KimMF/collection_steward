@@ -1012,7 +1012,7 @@ if (
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Productions — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260903-3">
+    <link rel="stylesheet" href="/app.css?v=20260904-1">
 </head>
 <body>
 <main>
@@ -1159,6 +1159,7 @@ if (
                         <?php if (in_array($selectedProduction['status'], ['planned', 'active'], true)): ?>
                             <a class="button" href="/checkout.php?production_id=<?= (int) $selectedProduction['id'] ?>">Open checkout</a>
                         <?php endif; ?>
+                        <a class="button secondary" href="/production-measurements.php?production_id=<?= (int) $selectedProduction['id'] ?>"><?= in_array($selectedProduction['status'], ['planned', 'active'], true) ? 'Plan measurements' : 'Production sessions' ?></a>
                         <a class="button secondary" href="/measurements.php?view=compact&amp;scope=group&amp;group_production_id=<?= (int) $selectedProduction['id'] ?>">Open measurements</a>
                     </div>
                 </header>

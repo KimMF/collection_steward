@@ -16,6 +16,7 @@ application's established URLs. Each entry point loads one functional module:
 | `productions.php` | `modules/productions.php` |
 | `checkout.php` | `modules/production-checkout.php` |
 | `measurements.php` | `modules/measurements.php` |
+| `production-measurements.php` | `modules/production-measurements.php` |
 | `asset-review.php` | `modules/asset-review.php` |
 | `vocabulary.php` | `modules/vocabulary.php` |
 | `users.php` | `modules/users.php` |
@@ -39,6 +40,10 @@ documented in [`docs/asset-retirement.md`](docs/asset-retirement.md).
 
 The Version 3 production, venue, and cast-management workflow is documented in
 [`docs/production-management.md`](docs/production-management.md).
+
+The Version 3 grouped production measurement sessions, reusable templates,
+actor-specific fields, deployment order, and smoke test are documented in
+[`docs/production-measurement-sessions.md`](docs/production-measurement-sessions.md).
 
 The database-controlled intake fields and vocabulary-review workflow are
 described in
