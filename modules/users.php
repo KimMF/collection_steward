@@ -243,8 +243,17 @@ $users = $userStatement->fetchAll();
         <a href="/change-password.php">Password</a>
     </nav>
 
-    <h1>Collection Steward users</h1>
-    <p>Signed in as <strong><?= collectionStewardEscape($currentUser['display_name']) ?></strong></p>
+    <div class="page-heading">
+        <div>
+            <h1>Collection Steward users</h1>
+        </div>
+        <div class="user-session">
+            <p>Signed in as <strong><?= collectionStewardEscape($currentUser['display_name']) ?></strong></p>
+            <form method="post" action="/">
+                <button type="submit" name="action" value="logout" class="secondary">Sign out</button>
+            </form>
+        </div>
+    </div>
 
     <?php if ($notice !== null): ?>
         <div class="notice" role="status"><?= collectionStewardEscape($notice) ?></div>

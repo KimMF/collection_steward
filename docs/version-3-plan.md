@@ -116,16 +116,16 @@ The Version 3 fitting is intentionally limited. It is not a costume plot.
 
 ### 5. Immutable measurement change history
 
-- [ ] Add append-only history for every measurement change, including
+- [x] Add append-only history for every measurement change, including
   deletions.
-- [ ] Record the measurement session, measurement type, prior value, new value,
+- [x] Record the measurement session, measurement type, prior value, new value,
   action, user, timestamp, and reason or source.
-- [ ] Record acceptance, correction, removal, and **Not applicable** as explicit
+- [x] Record acceptance, correction, removal, and **Not applicable** as explicit
   actions.
-- [ ] Keep imported source and staging values unchanged.
-- [ ] Do not allow history records to be edited or deleted through the
+- [x] Keep imported source and staging values unchanged.
+- [x] Do not allow history records to be edited or deleted through the
   application.
-- [ ] Preserve the current private access rules, review queue, actor history,
+- [x] Preserve the current private access rules, review queue, actor history,
   original-value display, and separate Thigh and Pants Size measurements.
 
 ### 6. Administrator data maintenance

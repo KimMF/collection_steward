@@ -45,6 +45,10 @@ The Version 3 grouped production measurement sessions, reusable templates,
 actor-specific fields, deployment order, and smoke test are documented in
 [`docs/production-measurement-sessions.md`](docs/production-measurement-sessions.md).
 
+The Version 3 append-only measurement-value history, baseline migration,
+deployment order, and smoke test are documented in
+[`docs/measurement-change-history.md`](docs/measurement-change-history.md).
+
 The database-controlled intake fields and vocabulary-review workflow are
 described in
 [`docs/controlled-intake-vocabulary.md`](docs/controlled-intake-vocabulary.md).

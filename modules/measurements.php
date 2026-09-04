@@ -256,10 +256,89 @@ function measurementReviewNote(
         : $trimmedExistingNote . "\n" . $newNote;
 }
 
+function measurementHistoryActionLabel(string $action): string
+{
+    return match ($action) {
+        'baseline' => 'History started',
+        'recorded' => 'Recorded',
+        'corrected' => 'Corrected',
+        'accepted' => 'Accepted',
+        'removed' => 'Removed',
+        'marked_not_applicable' => 'Marked Not applicable',
+        default => ucfirst(str_replace('_', ' ', $action)),
+    };
+}
+
+function measurementHistorySourceLabel(string $sourceContext): string
+{
+    return match ($sourceContext) {
+        'legacy_import' => 'Imported value',
+        'legacy_import_review' => 'Imported value reviewed in Measurements',
+        'existing_record' => 'Existing application value',
+        'measurements_application' => 'Measurements application',
+        default => ucfirst(str_replace('_', ' ', $sourceContext)),
+    };
+}
+
+function measurementHistoryDisplayValue(array $history, string $prefix): string
+{
+    $status = $history[$prefix . '_value_status'] ?? null;
+
+    if ($status === null) {
+        return 'No stored value';
+    }
+
+    if ($status === 'not_applicable') {
+        return 'Not applicable';
+    }
+
+    if (($history['value_kind'] ?? '') === 'number') {
+        $value = measurementDecimalForInput(
+            $history[$prefix . '_numeric_value'] ?? null
+        );
+    } else {
+        $value = trim((string) (
+            $history[$prefix . '_text_value'] ?? ''
+        ));
+    }
+
+    if ($value === '') {
+        return 'No stored value';
+    }
+
+    $unit = trim((string) ($history['unit'] ?? ''));
+
+    return $unit === '' ? $value : $value . ' ' . $unit;
+}
+
+function measurementAutomaticHistoryReason(
+    string $action,
+    bool $hasImportedSource
+): string
+{
+    return match ($action) {
+        'recorded' => 'Entered in the Measurements application.',
+        'accepted' => $hasImportedSource
+            ? 'Accepted the flagged imported value without changing it.'
+            : 'Accepted the flagged value without changing it.',
+        'corrected' => $hasImportedSource
+            ? 'Corrected the normalized value; the imported source remains unchanged.'
+            : 'Corrected the stored value.',
+        'removed' => $hasImportedSource
+            ? 'Removed the normalized value; the imported source remains unchanged.'
+            : 'Removed the stored value.',
+        'marked_not_applicable' => $hasImportedSource
+            ? 'Marked Not applicable; the imported source remains unchanged.'
+            : 'Marked the measurement Not applicable.',
+        default => 'Changed in the Measurements application.',
+    };
+}
+
 // Initialize request state for both new-session forms and existing-session
 // actions.
 $errors = [];
 $notice = null;
+$action = '';
 $requestedSessionId = measurementPositiveInteger(
     $_GET['session_id'] ?? null
 );
@@ -875,6 +954,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($action === 'save_session_values') {
+                $changeReason = measurementText($_POST, 'change_reason');
+
+                if (strlen($changeReason) > 500) {
+                    throw new DomainException(
+                        'The measurement-change reason must be 500 characters or fewer.'
+                    );
+                }
+
+                $connection->beginTransaction();
                 $typeStatement = $connection->prepare(
                     'SELECT id, code, name, value_kind
                      FROM measurement_types AS mt
@@ -918,7 +1006,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $existingValueStatement = $connection->prepare(
                     'SELECT *
                      FROM measurement_values
-                     WHERE measurement_session_id = :measurement_session_id'
+                     WHERE measurement_session_id = :measurement_session_id
+                     FOR UPDATE'
                 );
                 $existingValueStatement->execute([
                     'measurement_session_id' => $postedSessionId,
@@ -970,7 +1059,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if ($existingValue !== null) {
                                 $operations[] = [
                                     'operation' => 'delete',
+                                    'type_id' => $typeId,
                                     'existing' => $existingValue,
+                                    'history_action' => 'removed',
                                 ];
                             }
                             continue;
@@ -981,7 +1072,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($existingValue !== null) {
                             $operations[] = [
                                 'operation' => 'delete',
+                                'type_id' => $typeId,
                                 'existing' => $existingValue,
+                                'history_action' => 'removed',
                             ];
                         }
                         continue;
@@ -1029,6 +1122,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (!$changed && !$accepted) {
                             continue;
                         }
+
+                        if (!$changed && $accepted) {
+                            $historyAction = 'accepted';
+                        } elseif (
+                            $valueStatus === 'not_applicable'
+                            && (string) $existingValue['value_status']
+                                !== 'not_applicable'
+                        ) {
+                            $historyAction = 'marked_not_applicable';
+                        } else {
+                            $historyAction = 'corrected';
+                        }
+                    } else {
+                        $historyAction = $valueStatus === 'not_applicable'
+                            ? 'marked_not_applicable'
+                            : 'recorded';
                     }
 
                     $operations[] = [
@@ -1041,6 +1150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'numeric_value' => $numericValue,
                         'text_value' => $textValue,
                         'value_status' => $valueStatus,
+                        'history_action' => $historyAction,
                     ];
                 }
 
@@ -1048,8 +1158,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . $currentUser['display_name'] . ' on '
                     . (new DateTimeImmutable('today'))->format('Y-m-d') . '.';
 
-                $connection->beginTransaction();
+                $historyInsertStatement = $connection->prepare(
+                    'INSERT INTO measurement_value_history (
+                        measurement_session_id,
+                        measurement_type_id,
+                        measurement_value_id,
+                        change_action,
+                        previous_raw_value,
+                        previous_numeric_value,
+                        previous_text_value,
+                        previous_value_status,
+                        previous_needs_review,
+                        new_raw_value,
+                        new_numeric_value,
+                        new_text_value,
+                        new_value_status,
+                        new_needs_review,
+                        source_import_cell_id,
+                        source_context,
+                        change_reason,
+                        changed_by_user_id
+                     ) VALUES (
+                        :measurement_session_id,
+                        :measurement_type_id,
+                        :measurement_value_id,
+                        :change_action,
+                        :previous_raw_value,
+                        :previous_numeric_value,
+                        :previous_text_value,
+                        :previous_value_status,
+                        :previous_needs_review,
+                        :new_raw_value,
+                        :new_numeric_value,
+                        :new_text_value,
+                        :new_value_status,
+                        :new_needs_review,
+                        :source_import_cell_id,
+                        :source_context,
+                        :change_reason,
+                        :changed_by_user_id
+                     )'
+                );
+
                 foreach ($operations as $operation) {
+                    $existingValue = is_array($operation['existing'] ?? null)
+                        ? $operation['existing']
+                        : null;
+                    $sourceImportCellId = $existingValue !== null
+                        && $existingValue['source_import_cell_id'] !== null
+                            ? (int) $existingValue['source_import_cell_id']
+                            : null;
+                    $historyAction = (string) $operation['history_action'];
+                    $historyParameters = [
+                        'measurement_session_id' => $postedSessionId,
+                        'measurement_type_id' => (int) $operation['type_id'],
+                        'measurement_value_id' => $existingValue !== null
+                            ? (int) $existingValue['id']
+                            : null,
+                        'change_action' => $historyAction,
+                        'previous_raw_value' => $existingValue['raw_value']
+                            ?? null,
+                        'previous_numeric_value' =>
+                            $existingValue['numeric_value'] ?? null,
+                        'previous_text_value' =>
+                            $existingValue['text_value'] ?? null,
+                        'previous_value_status' =>
+                            $existingValue['value_status'] ?? null,
+                        'previous_needs_review' => $existingValue !== null
+                            ? (int) $existingValue['needs_review']
+                            : null,
+                        'new_raw_value' => null,
+                        'new_numeric_value' => null,
+                        'new_text_value' => null,
+                        'new_value_status' => null,
+                        'new_needs_review' => null,
+                        'source_import_cell_id' => $sourceImportCellId,
+                        'source_context' => $sourceImportCellId !== null
+                            ? 'legacy_import_review'
+                            : 'measurements_application',
+                        'change_reason' => $changeReason !== ''
+                            ? $changeReason
+                            : measurementAutomaticHistoryReason(
+                                $historyAction,
+                                $sourceImportCellId !== null
+                            ),
+                        'changed_by_user_id' => (int) $currentUser['id'],
+                    ];
+
                     if ($operation['operation'] === 'delete') {
                         $deleteValueStatement = $connection->prepare(
                             'DELETE FROM measurement_values
@@ -1060,6 +1255,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'measurement_value_id' => (int) $operation['existing']['id'],
                             'measurement_session_id' => $postedSessionId,
                         ]);
+
+                        if ($deleteValueStatement->rowCount() !== 1) {
+                            throw new RuntimeException(
+                                'The measurement value changed before it could be removed.'
+                            );
+                        }
+
+                        $historyInsertStatement->execute($historyParameters);
                         continue;
                     }
 
@@ -1102,6 +1305,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'review_notes' => $reviewNote,
                             'reviewed_by_user_id' => (int) $currentUser['id'],
                         ]);
+                        $historyParameters['measurement_value_id'] =
+                            (int) $connection->lastInsertId();
+                        $historyParameters['new_raw_value'] = $rawValue;
+                        $historyParameters['new_numeric_value'] =
+                            $operation['numeric_value'];
+                        $historyParameters['new_text_value'] =
+                            $operation['text_value'];
+                        $historyParameters['new_value_status'] =
+                            $operation['value_status'];
+                        $historyParameters['new_needs_review'] = 0;
+                        $historyInsertStatement->execute($historyParameters);
                         continue;
                     }
 
@@ -1129,6 +1343,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'measurement_value_id' => (int) $operation['existing']['id'],
                         'measurement_session_id' => $postedSessionId,
                     ]);
+
+                    if ($updateValueStatement->rowCount() !== 1) {
+                        throw new RuntimeException(
+                            'The measurement value changed before it could be saved.'
+                        );
+                    }
+
+                    $historyParameters['new_raw_value'] =
+                        $existingValue['raw_value'];
+                    $historyParameters['new_numeric_value'] =
+                        $operation['numeric_value'];
+                    $historyParameters['new_text_value'] =
+                        $operation['text_value'];
+                    $historyParameters['new_value_status'] =
+                        $operation['value_status'];
+                    $historyParameters['new_needs_review'] = 0;
+                    $historyInsertStatement->execute($historyParameters);
                 }
                 $connection->commit();
 
@@ -1532,6 +1763,7 @@ if ($requestedSessionId === null && $sessionList !== []) {
 // compact table data.
 $selectedSession = null;
 $selectedMeasurements = [];
+$measurementChangeHistory = [];
 $selectedRoles = [];
 $actorHistory = [];
 $compactMeasurementTypes = [];
@@ -1603,6 +1835,43 @@ if ($requestedSessionId !== null) {
             'additional_session_id' => $requestedSessionId,
         ]);
         $selectedMeasurements = $measurementStatement->fetchAll();
+
+        $measurementChangeHistoryStatement = $connection->prepare(
+            'SELECT
+                mvh.id,
+                mvh.measurement_value_id,
+                mvh.change_action,
+                mvh.previous_raw_value,
+                mvh.previous_numeric_value,
+                mvh.previous_text_value,
+                mvh.previous_value_status,
+                mvh.previous_needs_review,
+                mvh.new_raw_value,
+                mvh.new_numeric_value,
+                mvh.new_text_value,
+                mvh.new_value_status,
+                mvh.new_needs_review,
+                mvh.source_import_cell_id,
+                mvh.source_context,
+                mvh.change_reason,
+                mvh.changed_at,
+                mt.name AS measurement_type_name,
+                mt.value_kind,
+                mt.unit,
+                changed_by.display_name AS changed_by
+             FROM measurement_value_history AS mvh
+             JOIN measurement_types AS mt
+                ON mt.id = mvh.measurement_type_id
+             LEFT JOIN users AS changed_by
+                ON changed_by.id = mvh.changed_by_user_id
+             WHERE mvh.measurement_session_id = :measurement_session_id
+             ORDER BY mvh.changed_at DESC, mvh.id DESC'
+        );
+        $measurementChangeHistoryStatement->execute([
+            'measurement_session_id' => $requestedSessionId,
+        ]);
+        $measurementChangeHistory =
+            $measurementChangeHistoryStatement->fetchAll();
 
         if ($selectedSession['production_id'] !== null) {
             $roleStatement = $connection->prepare(
@@ -2098,7 +2367,7 @@ $groupScopeLinkParameters['scope'] = 'group';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Actor measurements — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260904-1">
+    <link rel="stylesheet" href="/app.css?v=20260904-3">
 </head>
 <body>
 <main class="measurements-page">
@@ -2866,11 +3135,67 @@ $groupScopeLinkParameters['scope'] = 'group';
                         <?php endforeach; ?>
                     </div>
 
+                    <div class="field measurement-change-reason">
+                        <label for="change_reason">Reason or source for these changes (optional)</label>
+                        <textarea id="change_reason" name="change_reason" maxlength="500" placeholder="For example: corrected from fitting worksheet"><?= collectionStewardEscape(
+                            $action === 'save_session_values'
+                                ? measurementText($_POST, 'change_reason')
+                                : ''
+                        ) ?></textarea>
+                        <span class="help">One note applies to every changed, accepted, or removed value in this save. If left blank, the history records the action automatically.</span>
+                    </div>
+
                     <div class="sticky-save-row">
                         <span>Only corrected, removed, or explicitly accepted flagged values are cleared.</span>
                         <button type="submit">Save measurement changes</button>
                     </div>
                 </form>
+
+                <details class="measurement-change-history">
+                    <summary>Measurement change history (<?= count($measurementChangeHistory) ?>)</summary>
+                    <p class="help">This append-only record cannot be edited or deleted through Collection Steward.</p>
+
+                    <?php if ($measurementChangeHistory === []): ?>
+                        <p>No measurement changes have been recorded for this session yet.</p>
+                    <?php else: ?>
+                        <div class="measurement-change-list">
+                            <?php foreach ($measurementChangeHistory as $historyEvent): ?>
+                                <?php
+                                $historySourceValue =
+                                    $historyEvent['previous_raw_value']
+                                    ?? $historyEvent['new_raw_value'];
+                                ?>
+                                <article class="measurement-change-event">
+                                    <div class="measurement-change-heading">
+                                        <h4><?= collectionStewardEscape(measurementHistoryActionLabel($historyEvent['change_action'])) ?> · <?= collectionStewardEscape($historyEvent['measurement_type_name']) ?></h4>
+                                        <span><?= collectionStewardEscape($historyEvent['changed_at']) ?></span>
+                                    </div>
+
+                                    <div class="measurement-change-values" aria-label="Value before and after">
+                                        <div>
+                                            <span>Before</span>
+                                            <strong><?= collectionStewardEscape(measurementHistoryDisplayValue($historyEvent, 'previous')) ?></strong>
+                                        </div>
+                                        <span class="measurement-change-arrow" aria-hidden="true">→</span>
+                                        <div>
+                                            <span>After</span>
+                                            <strong><?= collectionStewardEscape(measurementHistoryDisplayValue($historyEvent, 'new')) ?></strong>
+                                        </div>
+                                    </div>
+
+                                    <p class="measurement-change-meta">
+                                        <?= collectionStewardEscape(measurementHistorySourceLabel($historyEvent['source_context'])) ?>
+                                        · Recorded by <?= collectionStewardEscape($historyEvent['changed_by'] ?: 'system baseline') ?>
+                                    </p>
+                                    <?php if ($historyEvent['source_import_cell_id'] !== null && $historySourceValue !== null): ?>
+                                        <p class="measurement-change-source">Original import: <strong><?= collectionStewardEscape($historySourceValue) ?></strong></p>
+                                    <?php endif; ?>
+                                    <p class="measurement-change-reason-text"><strong>Reason:</strong> <?= collectionStewardEscape($historyEvent['change_reason']) ?></p>
+                                </article>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </details>
 
                 <?php if ($selectedSession['review_status'] === 'needs_review'): ?>
                 <section class="finish-review-panel">

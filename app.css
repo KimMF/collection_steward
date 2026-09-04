@@ -1711,6 +1711,7 @@ main.measurements-page {
 
 .character-panel,
 .measurement-values-form,
+.measurement-change-history,
 .finish-review-panel,
 .actor-history,
 .compact-measurements {
@@ -2140,6 +2141,112 @@ main.measurements-page {
     width: 1.1rem;
 }
 
+.measurement-change-reason {
+    margin-top: 1rem;
+}
+
+.measurement-change-reason textarea {
+    min-height: 4.5rem;
+}
+
+.measurement-change-history {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.measurement-change-history > summary {
+    color: #164f45;
+    cursor: pointer;
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.measurement-change-list {
+    border: 1px solid #d5d1c8;
+    border-radius: 0.45rem;
+    overflow: hidden;
+}
+
+.measurement-change-event {
+    background: #faf9f5;
+    padding: 0.8rem;
+}
+
+.measurement-change-event + .measurement-change-event {
+    border-top: 1px solid #d5d1c8;
+}
+
+.measurement-change-heading {
+    align-items: baseline;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: space-between;
+}
+
+.measurement-change-heading h4 {
+    margin: 0;
+}
+
+.measurement-change-heading > span,
+.measurement-change-meta,
+.measurement-change-source,
+.measurement-change-reason-text {
+    font-size: 0.84rem;
+}
+
+.measurement-change-heading > span,
+.measurement-change-meta {
+    color: #555;
+}
+
+.measurement-change-values {
+    align-items: center;
+    display: grid;
+    gap: 0.65rem;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    margin-top: 0.65rem;
+}
+
+.measurement-change-values > div {
+    background: #fff;
+    border: 1px solid #ddd9d0;
+    border-radius: 0.35rem;
+    min-width: 0;
+    padding: 0.5rem;
+}
+
+.measurement-change-values > div > span {
+    color: #666;
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.measurement-change-values strong {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.measurement-change-arrow {
+    color: #2f725f;
+    font-size: 1.2rem;
+    font-weight: 800;
+}
+
+.measurement-change-meta,
+.measurement-change-source,
+.measurement-change-reason-text {
+    margin: 0.55rem 0 0;
+    overflow-wrap: anywhere;
+}
+
+.measurement-change-source {
+    background: #eeeae1;
+    border-left: 0.2rem solid #777;
+    padding: 0.35rem 0.45rem;
+}
+
 .sticky-save-row {
     align-items: center;
     background: rgba(255, 255, 255, 0.96);
@@ -2493,6 +2600,12 @@ main.measurements-page {
         grid-template-columns: 1fr;
     }
 
+    .measurement-change-heading {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
     .sticky-save-row button {
         margin-top: 0.6rem;
     }
@@ -2540,6 +2653,7 @@ main.measurements-page {
     .session-details-panel,
     .character-panel,
     .measurement-values-form,
+    .measurement-change-history,
     .finish-review-panel,
     .actor-history {
         display: none !important;
