@@ -191,8 +191,21 @@ function measurementCsvCatalog(PDO $db, bool $lock = false): array
     ];
 }
 
+function measurementCsvIncludedRows(array $data, array $choices): array
+{
+    $included = is_array($choices['included_rows'] ?? null) ? $choices['included_rows'] : [];
+    $rows = array_values(array_filter($data['rows'], static fn($row) => ($included[$row['number']] ?? '') === '1'));
+    if (!$rows) {
+        throw new DomainException('Select at least one row to import. Return to row choices if this preview was opened before the row-selection update.');
+    }
+    return $rows;
+}
+
 function measurementCsvPlan(PDO $db, array $pending, array $choices, bool $lock = false): array
 {
+    $sourceRows = measurementCsvIncludedRows($pending['data'], $choices);
+    $includedActorKeys = array_fill_keys(array_column($sourceRows, 'actor_key'), true);
+    $skippedRows = count($pending['data']['rows']) - count($sourceRows);
     $catalog = measurementCsvCatalog($db, $lock);
     $typesById = array_column($catalog['types'], null, 'id');
     $peopleById = array_column($catalog['people'], null, 'id');
@@ -240,6 +253,7 @@ function measurementCsvPlan(PDO $db, array $pending, array $choices, bool $lock 
     }
     $actorPlan = [];
     foreach ($pending['data']['actors'] as $key => $actor) {
+        if (!isset($includedActorKeys[$key])) { continue; }
         $target = $choices['actors'][$actor['index']] ?? '';
         $matches = array_values(array_filter($catalog['people'], static fn($p) => measurementCsvKey($p['display_name']) === $key));
         if ($target === 'new') {
@@ -255,7 +269,7 @@ function measurementCsvPlan(PDO $db, array $pending, array $choices, bool $lock 
     }
     $rows = [];
     $seen = [];
-    foreach ($pending['data']['rows'] as $row) {
+    foreach ($sourceRows as $row) {
         $actor = $actorPlan[$row['actor_key']];
         $identity = ($actor['id'] === null ? 'new:' . $row['actor_key'] : 'id:' . $actor['id']) . '|' . $row['date'];
         if (isset($seen[$identity])) {
@@ -277,7 +291,7 @@ function measurementCsvPlan(PDO $db, array $pending, array $choices, bool $lock 
     $duplicate = $db->prepare('SELECT id FROM measurement_import_batches WHERE source_sha256 = ?');
     $duplicate->execute([$pending['sha256']]);
     if ($duplicate->fetchColumn() !== false) { throw new DomainException('This exact CSV file has already been imported. No records were added.'); }
-    return ['types' => $typePlan, 'actors' => $actorPlan, 'production' => $production, 'rows' => $rows];
+    return ['types' => $typePlan, 'actors' => $actorPlan, 'production' => $production, 'rows' => $rows, 'skipped_rows' => $skippedRows];
 }
 
 function measurementCsvInsert(PDO $db, string $table, array $values): int
@@ -303,7 +317,7 @@ function measurementCsvCommit(PDO $db, array $pending, int $userId, bool $approv
         }
         $batchId = measurementCsvInsert($db, 'measurement_import_batches', [
             'source_name' => $pending['filename'], 'source_sha256' => $pending['sha256'],
-            'source_description' => 'CSV import by user ' . $userId . '; source rows/cells preserved. Blank measurement rows skipped: ' . $pending['data']['skipped'],
+            'source_description' => 'CSV import by user ' . $userId . '; source rows/cells preserved. Blank measurement rows skipped: ' . $pending['data']['skipped'] . '; rows excluded by steward: ' . $plan['skipped_rows'],
         ]);
         foreach ($plan['types'] as &$type) {
             if ($type['id'] === null) {

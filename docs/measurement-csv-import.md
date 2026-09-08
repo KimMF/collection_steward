@@ -108,3 +108,35 @@ Required live verification, preferably using test actors:
 Rollback: restore `modules/measurements.php` and `app.css`, then remove the three
 new import files to disable the feature. This does not undo completed imports;
 use the recorded import batch/session IDs for any required data review.
+
+## Follow-up: skip selected actor rows
+
+The configuration page now includes **Rows to import**, with **Include this row**
+checked initially for every actor/date row. Uncheck a row to skip it; uncheck all
+rows for an actor to skip that actor entirely. Actor matches are required only
+for included rows. The preview shows included/skipped counts and displays only
+included rows. Changing choices retains the selection. At least one row must
+remain included. Incomplete/truncated forms are rejected rather than silently
+omitting rows.
+
+Excluded actors are removed before planning and are never created by this
+import; their sessions, source rows/cells, values, and history are not written.
+The batch description records the excluded-row count. Existing duplicate-file
+protection remains: after a partial import, save the skipped rows in a separate
+CSV if you later want to import them.
+
+Only two production files change for this follow-up:
+
+1. `lib/measurement-csv-import.php`
+2. `modules/measurement-import.php`
+
+Commit/push and back up these two server files, then upload the helper followed
+by the module. Reopen the import page and regenerate any older preview. No
+change to `app.css`, `modules/measurements.php`, or the root entry file is needed.
+
+Verification: upload a small CSV, uncheck an actor row, and confirm the preview
+omits it and reports the expected count. Return to choices and confirm it stays
+unchecked. A skipped new/ambiguous actor should not require a match. Test that
+clearing every checkbox prevents import. Confirm a completed import creates
+records only for included rows. PHP regression cases were added, but could not
+be executed in this workspace; server verification is still required.

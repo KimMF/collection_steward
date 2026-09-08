@@ -48,3 +48,17 @@ check(measurementCsvDefinition('Nape to Waist (Back) (in)', $types)['matches'][0
 check(measurementCsvDefinition('New length (cm)', $types)['matches'] === [], 'Unfamiliar name remains unresolved');
 check(measurementCsvDefinition('New length (cm)', $types)['unit'] === 'cm', 'New unit parsed');
 echo "PASS: CSV parsing, dates/precision, malformed input, blanks/N/A, normalization/review, header matching.\n";
+
+$selectionData = ['rows' => [
+    ['number' => 2, 'actor_key' => 'alex', 'date' => '2026-09-01'],
+    ['number' => 3, 'actor_key' => 'blair', 'date' => '2026-09-01'],
+    ['number' => 4, 'actor_key' => 'alex', 'date' => '2026-09-02'],
+]];
+$chosen = measurementCsvIncludedRows($selectionData, ['included_rows' => [2 => '1', 4 => '1']]);
+check(array_column($chosen, 'number') === [2, 4], 'Excluded actor has no rows in import');
+$chosen = measurementCsvIncludedRows($selectionData, ['included_rows' => [4 => '1']]);
+check(array_column($chosen, 'number') === [4], 'Dates for the same actor can be selected independently');
+rejects(fn() => measurementCsvIncludedRows($selectionData, ['included_rows' => []]), 'No rows selected');
+rejects(fn() => measurementCsvIncludedRows($selectionData, []), 'Old preview cannot silently import every row');
+rejects(fn() => measurementCsvIncludedRows($selectionData, ['included_rows' => [999 => '1']]), 'Unknown row numbers');
+echo "PASS: actor/row exclusion, independent date selection, empty and stale selections.\n";

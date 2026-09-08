@@ -41,6 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($action === 'cancel') { $pending = null; }
             elseif ($action === 'configure') { $pending['stage'] = 'configure'; }
             elseif ($action === 'preview') {
+                if (($_POST['row_selection_complete'] ?? '') !== '1') {
+                    throw new DomainException('The row-selection form was incomplete or too large. Refresh this page and try again; use a smaller CSV if it persists.');
+                }
                 $pending['stage'] = 'configure';
                 $columnChoices = [];
                 foreach ($pending['data']['columns'] as $index => $_) {
@@ -54,10 +57,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $value = $_POST['actors'][$actor['index']] ?? null;
                     $actorChoices[$actor['index']] = is_string($value) ? $value : '';
                 }
+                $includedRows = [];
+                foreach ($pending['data']['rows'] as $row) {
+                    if (($_POST['included_rows'][$row['number']] ?? '') === '1') {
+                        $includedRows[$row['number']] = '1';
+                    }
+                }
                 $pending['choices'] = [
                     'production_id' => is_string($_POST['production_id'] ?? null) ? $_POST['production_id'] : '',
                     'columns' => $columnChoices,
                     'actors' => $actorChoices,
+                    'included_rows' => $includedRows,
                 ];
                 $plan = measurementCsvPlan($db, $pending, $pending['choices']);
                 $pending['plan'] = $plan;
@@ -168,7 +178,22 @@ function measurementImportHidden(string $csrfToken, array $pending): void
                     <?php endforeach; ?>
                     </tbody></table></div>
                 </section>
+                <section><h2>Rows to import</h2>
+                    <p>Uncheck any row you want to skip. If an actor has several dates, uncheck all of their rows to skip that actor entirely.</p>
+                    <div class="csv-scroll"><table><thead><tr><th>Include</th><th>CSV row</th><th>Actor in CSV</th><th>Measurement date</th></tr></thead><tbody>
+                    <?php foreach ($pending['data']['rows'] as $row):
+                        $includeRow = !isset($pending['choices']['included_rows'])
+                            || ($pending['choices']['included_rows'][$row['number']] ?? '') === '1';
+                    ?>
+                        <tr><td><label><input type="checkbox" name="included_rows[<?= $row['number'] ?>]" value="1" <?= $includeRow ? 'checked' : '' ?>> Include this row</label></td>
+                            <td><?= $row['number'] ?></td>
+                            <td><?= collectionStewardEscape($pending['data']['actors'][$row['actor_key']]['name']) ?></td>
+                            <td><?= collectionStewardEscape($row['date_text']) ?></td></tr>
+                    <?php endforeach; ?>
+                    </tbody></table></div>
+                </section>
                 <section><h2>Actor matches</h2>
+                    <p>Choose actor matches for included rows only. A skipped actor will not be created or imported.</p>
                     <div class="csv-scroll"><table><thead><tr><th>Name in CSV</th><th>Import measurements for</th></tr></thead><tbody>
                     <?php foreach ($pending['data']['actors'] as $key => $actor):
                         $matches = array_values(array_filter($catalog['people'], static fn($p) => measurementCsvKey($p['display_name']) === $key));
@@ -177,7 +202,7 @@ function measurementImportHidden(string $csrfToken, array $pending): void
                     ?>
                         <tr><th scope="row"><?= collectionStewardEscape($actor['name']) ?></th><td>
                             <label class="visually-hidden" for="actor-<?= $actor['index'] ?>">Match <?= collectionStewardEscape($actor['name']) ?></label>
-                            <select id="actor-<?= $actor['index'] ?>" name="actors[<?= $actor['index'] ?>]" required>
+                            <select id="actor-<?= $actor['index'] ?>" name="actors[<?= $actor['index'] ?>]">
                                 <option value="">Choose actor</option>
                                 <?php if (!$matches): ?><option value="new" <?= $target === 'new' ? 'selected' : '' ?>>Create actor: <?= collectionStewardEscape($actor['name']) ?></option><?php endif; ?>
                                 <?php foreach ($catalog['people'] as $person): if (!(int) $person['is_active']) { continue; } ?>
@@ -188,10 +213,12 @@ function measurementImportHidden(string $csrfToken, array $pending): void
                     <?php endforeach; ?>
                     </tbody></table></div>
                 </section>
+                <input type="hidden" name="row_selection_complete" value="1">
                 <button type="submit">Preview import</button>
             </form>
         <?php else: $plan = $pending['plan']; $hasExisting = false; ?>
             <h2>Review before importing</h2>
+            <p><strong><?= count($plan['rows']) ?> rows included; <?= (int) ($plan['skipped_rows'] ?? 0) ?> rows skipped by your selection.</strong></p>
             <p>Production: <strong><?= collectionStewardEscape($plan['production']['name'] ?? 'General fitting') ?></strong>. Each row below will create a new measurement session marked <strong>Needs review</strong>.</p>
             <p>Blank cells add no value. Original CSV cells are preserved. Values marked “Review original” remain available as source text until a steward corrects them.</p>
             <section><h3>Measurement definitions</h3><ul>
@@ -216,7 +243,7 @@ function measurementImportHidden(string $csrfToken, array $pending): void
                 <?php if ($hasExisting): ?><label><input type="checkbox" name="approve_separate" value="1" required> Create separate sessions for the actors and dates already recorded.</label><?php endif; ?>
                 <button type="submit">Import <?= count($plan['rows']) ?> measurement sessions</button>
             </form>
-            <form method="post"><?php measurementImportHidden($csrfToken, $pending); ?><button type="submit" class="secondary" name="action" value="configure">Change column or actor choices</button></form>
+            <form method="post"><?php measurementImportHidden($csrfToken, $pending); ?><button type="submit" class="secondary" name="action" value="configure">Change row, column, or actor choices</button></form>
         <?php endif; ?>
         <form method="post"><?php measurementImportHidden($csrfToken, $pending); ?><button type="submit" class="secondary" name="action" value="cancel">Cancel import</button></form>
     <?php endif; ?>
