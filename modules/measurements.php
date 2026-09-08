@@ -2745,8 +2745,13 @@ $groupScopeLinkParameters['scope'] = 'group';
                                     <?= count($compactSessions) ?> row<?= count($compactSessions) === 1 ? '' : 's' ?> shown
                                 </span>
                                 <?php if ($compactSessions !== []): ?>
-                                    <div class="measurement-print-actions" aria-label="Printable worksheets">
-                                        <button type="button" class="secondary" data-print-worksheet="current">Print current measurements</button>
+                                    <div class="measurement-print-actions" aria-label="Measurement output">
+                                        <label for="measurement-output-format">Output</label>
+                                        <select id="measurement-output-format">
+                                            <option value="pdf">PDF / Print</option>
+                                            <option value="csv">CSV</option>
+                                        </select>
+                                        <button type="button" class="secondary" data-print-worksheet="current">Export current measurements</button>
                                         <button type="button" class="secondary" data-print-worksheet="blank">Print blank worksheet</button>
                                     </div>
                                 <?php endif; ?>
@@ -2769,8 +2774,8 @@ $groupScopeLinkParameters['scope'] = 'group';
 
                         <?php if ($compactSessions !== []): ?>
                             <details class="measurement-print-columns">
-                                <summary>Choose columns to print</summary>
-                                <p class="help">Actor and measurement date are included automatically. Choose the measurement columns for both printable worksheets.</p>
+                                <summary>Choose columns to print or export</summary>
+                                <p class="help">Actor and measurement date are included automatically. Choose the measurement columns for PDF, CSV, and the blank printable worksheet.</p>
                                 <div class="measurement-print-column-actions">
                                     <button type="button" class="secondary" data-print-columns="all">Select all</button>
                                     <button type="button" class="secondary" data-print-columns="none">Clear all</button>
@@ -2805,7 +2810,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                                         <?php endif; ?>
                                         <th scope="col" class="compact-session-column">Measurement date</th>
                                         <?php foreach ($compactMeasurementTypes as $measurementType): ?>
-                                            <th scope="col">
+                                            <th scope="col" data-csv-value="<?= collectionStewardEscape($measurementType['name'] . (!empty($measurementType['unit']) ? ' (' . measurementCompactUnit($measurementType['unit']) . ')' : '')) ?>">
                                                 <span><?= collectionStewardEscape($measurementType['name']) ?></span>
                                                 <?php if (!empty($measurementType['unit'])): ?>
                                                     <small>(<?= collectionStewardEscape(measurementCompactUnit($measurementType['unit'])) ?>)</small>
@@ -2853,7 +2858,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                                             }
                                         }
                                         ?>
-                                        <tr class="<?= $compactSessionIsCurrent ? 'is-current' : '' ?> <?= (int) $compactSession['flagged_value_count'] > 0 ? 'has-flagged-values' : '' ?>">
+                                        <tr data-csv-actor="<?= collectionStewardEscape($compactActorName) ?>" data-csv-date="<?= $compactSessionId === null ? '' : collectionStewardEscape(measurementFormattedDate($compactSession['measured_on'], $compactSession['date_precision'])) ?>" class="<?= $compactSessionIsCurrent ? 'is-current' : '' ?> <?= (int) $compactSession['flagged_value_count'] > 0 ? 'has-flagged-values' : '' ?>">
                                             <?php if ($compactScope === 'group'): ?>
                                                 <th scope="row" class="compact-actor-column">
                                                     <span><?= collectionStewardEscape($compactSession['actor_name']) ?></span>
@@ -2925,7 +2930,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                                                     }
                                                 }
                                                 ?>
-                                                <td class="<?= $compactValueIsFlagged ? 'needs-review' : '' ?> <?= $compactValueWasCorrected ? 'was-corrected' : '' ?>">
+                                                <td data-csv-value="<?= collectionStewardEscape($compactDisplayValue) ?>" class="<?= $compactValueIsFlagged ? 'needs-review' : '' ?> <?= $compactValueWasCorrected ? 'was-corrected' : '' ?>">
                                                     <?php if ($compactValue === null || $compactDisplayValue === ''): ?>
                                                         <span class="visually-hidden">Not measured</span>
                                                     <?php else: ?>
@@ -3255,6 +3260,68 @@ document.querySelectorAll('[data-submit-on-change]').forEach(function (input) {
     });
 });
 
+const selectedWorksheetColumns = function (fixedColumnCount, headerCount) {
+    const selectedMeasurementColumns = Array.from(
+        document.querySelectorAll('[data-print-column]:checked')
+    ).map(function (input) {
+        return fixedColumnCount + Number.parseInt(input.value, 10);
+    }).filter(function (columnIndex) {
+        return Number.isInteger(columnIndex)
+            && columnIndex >= fixedColumnCount
+            && columnIndex < headerCount;
+    });
+
+    if (selectedMeasurementColumns.length === 0) {
+        window.alert('Choose at least one measurement column to print or export.');
+        return false;
+    }
+    return selectedMeasurementColumns;
+};
+
+// Quote every field and neutralize spreadsheet formulas in user-entered text.
+const measurementCsvField = function (value) {
+    let text = String(value);
+    if (/^[\s\uFEFF]*[=+@-]/u.test(text) || /^[\t\r\n]/u.test(text)) {
+        text = "'" + text;
+    }
+    return '"' + text.replace(/"/g, '""') + '"';
+};
+
+const exportCurrentMeasurementsCsv = function () {
+    const table = document.querySelector('.compact-table-scroll .compact-measurement-table');
+    if (!table) {
+        return;
+    }
+    const headers = Array.from(table.querySelectorAll('thead tr > th'));
+    const fixedColumnCount = table.classList.contains('has-actor-column') ? 2 : 1;
+    const columns = selectedWorksheetColumns(fixedColumnCount, headers.length);
+    if (!columns) {
+        return;
+    }
+    const rows = [
+        ['Actor', 'Measurement date', ...columns.map(function (index) {
+            return headers[index].dataset.csvValue;
+        })],
+        ...Array.from(table.querySelectorAll('tbody > tr')).map(function (row) {
+            return [row.dataset.csvActor, row.dataset.csvDate, ...columns.map(function (index) {
+                return row.children[index].dataset.csvValue;
+            })];
+        })
+    ];
+    const csv = rows.map(function (row) {
+        return row.map(measurementCsvField).join(',');
+    }).join('\r\n') + '\r\n';
+    // UTF-8 BOM lets desktop spreadsheet applications recognize accented names.
+    const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'current-measurements-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+};
+
 const buildPrintableWorksheetPages = function (isBlankWorksheet) {
     const sourceTable = document.querySelector(
         '.compact-table-scroll .compact-measurement-table'
@@ -3276,18 +3343,8 @@ const buildPrintableWorksheetPages = function (isBlankWorksheet) {
         ? 2
         : 1;
     const measurementsPerPage = 7;
-    const selectedMeasurementColumns = Array.from(
-        document.querySelectorAll('[data-print-column]:checked')
-    ).map(function (input) {
-        return fixedColumnCount + Number.parseInt(input.value, 10);
-    }).filter(function (columnIndex) {
-        return Number.isInteger(columnIndex)
-            && columnIndex >= fixedColumnCount
-            && columnIndex < sourceHeaders.length;
-    });
-
-    if (selectedMeasurementColumns.length === 0) {
-        window.alert('Choose at least one measurement column to print.');
+    const selectedMeasurementColumns = selectedWorksheetColumns(fixedColumnCount, sourceHeaders.length);
+    if (!selectedMeasurementColumns) {
         return false;
     }
 
@@ -3392,6 +3449,11 @@ document.querySelectorAll('[data-print-columns]').forEach(function (button) {
 document.querySelectorAll('[data-print-worksheet]').forEach(function (button) {
     button.addEventListener('click', function () {
         const isBlankWorksheet = button.dataset.printWorksheet === 'blank';
+        const outputFormat = document.getElementById('measurement-output-format');
+        if (!isBlankWorksheet && outputFormat && outputFormat.value === 'csv') {
+            exportCurrentMeasurementsCsv();
+            return;
+        }
         if (!buildPrintableWorksheetPages(isBlankWorksheet)) {
             return;
         }
