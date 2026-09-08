@@ -3127,6 +3127,7 @@ main.measurements-page {
 
     main.measurements-page {
         max-width: none;
+        min-height: 0;
         padding: 0;
     }
 
@@ -3156,6 +3157,7 @@ main.measurements-page {
     }
 
     .measurement-editor {
+        border: 0;
         padding: 0;
     }
 
@@ -3199,13 +3201,16 @@ main.measurements-page {
     }
 
     .print-worksheet-page {
-        break-after: page;
-        page-break-after: always;
-    }
-
-    .print-worksheet-page:last-child {
+        border: 0;
+        margin: 0;
+        padding: 0;
         break-after: auto;
         page-break-after: auto;
+    }
+
+    .print-worksheet-page + .print-worksheet-page {
+        break-before: page;
+        page-break-before: always;
     }
 
     .compact-measurement-table {
