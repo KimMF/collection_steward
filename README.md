@@ -17,6 +17,7 @@ application's established URLs. Each entry point loads one functional module:
 | `checkout.php` | `modules/production-checkout.php` |
 | `fittings.php` | `modules/fittings.php` |
 | `measurements.php` | `modules/measurements.php` |
+| `measurement-import.php` | `modules/measurement-import.php` |
 | `production-measurements.php` | `modules/production-measurements.php` |
 | `asset-review.php` | `modules/asset-review.php` |
 | `vocabulary.php` | `modules/vocabulary.php` |
@@ -71,3 +72,6 @@ is documented in
 Individual accounts, temporary passwords, and required first-login password
 changes are documented in
 [`docs/individual-passwords.md`](docs/individual-passwords.md).
+
+CSV import, approval of new measurement names, and worksheets without actors
+are documented in [`docs/measurement-csv-import.md`](docs/measurement-csv-import.md).

@@ -3132,6 +3132,9 @@ main.measurements-page {
 
     .measurements-page > nav,
     .measurements-page > .page-heading,
+    .measurements-page > .measurement-page-actions,
+    .measurements-page > .notice,
+    .measurements-page > .error,
     .measurement-summary,
     .measurement-browser,
     .measurement-session-header,

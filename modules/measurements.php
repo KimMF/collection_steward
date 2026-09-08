@@ -273,6 +273,7 @@ function measurementHistorySourceLabel(string $sourceContext): string
 {
     return match ($sourceContext) {
         'legacy_import' => 'Imported value',
+        'csv_import' => 'CSV import',
         'legacy_import_review' => 'Imported value reviewed in Measurements',
         'existing_record' => 'Existing application value',
         'measurements_application' => 'Measurements application',
@@ -1605,7 +1606,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Convert redirect flags into confirmation messages after successful writes.
-if (isset($_GET['session_created'])) {
+if (isset($_GET['csv_imported'])) {
+    $notice = 'The CSV was imported. New measurement sessions are in the review queue; original source cells are preserved.';
+} elseif (isset($_GET['session_created'])) {
     $notice = 'The measurement session was created. Add the measurements below.';
 } elseif (isset($_GET['production_created'])) {
     $notice = 'The production was created and selected in the new-session form.';
@@ -1652,9 +1655,11 @@ if (in_array($requestedViewMode, ['compact', 'expanded'], true)) {
     $viewMode = 'compact';
 }
 
-$compactScope = measurementText($_GET, 'scope') === 'group'
-    ? 'group'
-    : 'actor';
+$compactScope = measurementText($_GET, 'scope');
+if (!in_array($compactScope, ['actor', 'group', 'none'], true)
+    || ($viewMode === 'expanded' && $compactScope === 'none')) {
+    $compactScope = 'actor';
+}
 $showAllMeasurementSessions = measurementText(
     $_GET,
     'all_sessions'
@@ -2299,6 +2304,20 @@ if ($viewMode === 'compact'
     }
 }
 
+// None provides a name-free worksheet even when no measurement sessions exist.
+if ($viewMode === 'compact' && $compactScope === 'none') {
+    $compactMeasurementTypes = $connection->query(
+        'SELECT id AS measurement_type_id, name, unit, display_order
+         FROM measurement_types WHERE is_active = 1 ORDER BY display_order, name'
+    )->fetchAll();
+    $compactSessions = array_fill(0, 12, [
+        'measurement_session_id' => null,
+        'actor_name' => '',
+        'flagged_value_count' => 0,
+    ]);
+    $compactValues = [];
+}
+
 // Preserve the current list, layout, scope, and filters when building links
 // between the Compact and Expanded presentations.
 $compactContextParameters = [
@@ -2338,6 +2357,9 @@ $expandedViewLinkParameters = array_merge(
     ['view' => 'expanded'],
     $compactContextParameters
 );
+if ($compactScope === 'none') {
+    $expandedViewLinkParameters['scope'] = 'actor';
+}
 if ($requestedSessionId !== null) {
     $compactViewLinkParameters['session_id'] = $requestedSessionId;
     $expandedViewLinkParameters['session_id'] = $requestedSessionId;
@@ -2358,6 +2380,8 @@ unset(
 );
 $groupScopeLinkParameters = $compactViewLinkParameters;
 $groupScopeLinkParameters['scope'] = 'group';
+$noneScopeLinkParameters = $actorScopeLinkParameters;
+$noneScopeLinkParameters['scope'] = 'none';
 
 // Render the measurement workspace.
 ?>
@@ -2367,7 +2391,7 @@ $groupScopeLinkParameters['scope'] = 'group';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Actor measurements — Collection Steward</title>
-    <link rel="stylesheet" href="/app.css?v=20260904-3">
+    <link rel="stylesheet" href="/app.css?v=20260908-import">
 </head>
 <body>
 <main class="measurements-page">
@@ -2411,6 +2435,8 @@ $groupScopeLinkParameters['scope'] = 'group';
 
     <div class="button-row measurement-page-actions">
         <a class="button secondary" href="/production-measurements.php">Production measurement sessions</a>
+        <a class="button secondary" href="/measurement-import.php">Import CSV</a>
+        <a class="button secondary" href="/measurements.php?view=compact&amp;scope=none#compact-measurements-title">Blank worksheet without actors</a>
     </div>
 
     <?php if ($notice !== null): ?>
@@ -2584,12 +2610,13 @@ $groupScopeLinkParameters['scope'] = 'group';
         </aside>
 
         <div class="measurement-editor">
-            <?php if ($selectedSession === null): ?>
+            <?php if ($selectedSession === null && !($viewMode === 'compact' && $compactScope === 'none')): ?>
                 <div class="measurement-empty-state">
                     <h2>Choose a measurement session</h2>
                     <p>Use the review list or actor search to open a session.</p>
                 </div>
             <?php else: ?>
+                <?php if ($selectedSession !== null && $compactScope !== 'none'): ?>
                 <header class="measurement-session-header">
                     <div>
                         <span class="status-badge status-<?= collectionStewardEscape($selectedSession['review_status']) ?>">
@@ -2620,6 +2647,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                     </div>
                 </header>
 
+                <?php endif; ?>
                 <div class="measurement-view-controls">
                     <div class="measurement-switches">
                         <div class="measurement-view-switch" aria-label="Measurement layout">
@@ -2645,6 +2673,10 @@ $groupScopeLinkParameters['scope'] = 'group';
                                     href="/measurements.php?<?= collectionStewardEscape(http_build_query($groupScopeLinkParameters)) ?>#compact-measurements-title"
                                     <?= $compactScope === 'group' ? 'aria-current="page"' : '' ?>
                                 >Production cast</a>
+                                <a
+                                    href="/measurements.php?<?= collectionStewardEscape(http_build_query($noneScopeLinkParameters)) ?>#compact-measurements-title"
+                                    <?= $compactScope === 'none' ? 'aria-current="page"' : '' ?>
+                                >None</a>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -2726,7 +2758,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                         <div class="section-heading compact-measurement-heading">
                             <div>
                                 <h3 id="compact-measurements-title">
-                                    <?= $compactScope === 'group' ? 'Cast measurements' : 'Measurements' ?>
+                                    <?= $compactScope === 'none' ? 'Blank measurement worksheet' : ($compactScope === 'group' ? 'Cast measurements' : 'Measurements') ?>
                                 </h3>
                                 <?php if ($compactScope === 'group' && $selectedGroupProduction !== null): ?>
                                     <p class="compact-group-name">
@@ -2734,7 +2766,11 @@ $groupScopeLinkParameters['scope'] = 'group';
                                     </p>
                                 <?php endif; ?>
                                 <p class="help">
+                                    <?php if ($compactScope === 'none'): ?>
+                                        No actors selected. Choose columns below, then print a worksheet with empty actor, date, and measurement fields.
+                                    <?php else: ?>
                                     Blank means not measured. Select a date to make it the current session; select a value to edit it in Expanded layout. Scroll vertically among actors and horizontally among measurements.
+                                    <?php endif; ?>
                                 </p>
                             </div>
                             <div class="compact-heading-actions">
@@ -2746,12 +2782,14 @@ $groupScopeLinkParameters['scope'] = 'group';
                                 </span>
                                 <?php if ($compactSessions !== []): ?>
                                     <div class="measurement-print-actions" aria-label="Measurement output">
+                                        <?php if ($compactScope !== 'none'): ?>
                                         <label for="measurement-output-format">Output</label>
                                         <select id="measurement-output-format">
                                             <option value="pdf">PDF / Print</option>
                                             <option value="csv">CSV</option>
                                         </select>
                                         <button type="button" class="secondary" data-print-worksheet="current">Export current measurements</button>
+                                        <?php endif; ?>
                                         <button type="button" class="secondary" data-print-worksheet="blank">Print blank worksheet</button>
                                     </div>
                                 <?php endif; ?>
@@ -2766,7 +2804,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                             <p>
                                 <?php if ($compactScope === 'group' && $selectedGroupProduction !== null): ?>
                                     <?= collectionStewardEscape(measurementProductionLabel($selectedGroupProduction)) ?>
-                                <?php else: ?>
+                                <?php elseif ($compactScope !== 'none'): ?>
                                     <?= collectionStewardEscape($selectedSession['actor_name']) ?>
                                 <?php endif; ?>
                             </p>
@@ -2802,10 +2840,10 @@ $groupScopeLinkParameters['scope'] = 'group';
                             </p>
                         <?php else: ?>
                             <div class="compact-table-scroll" tabindex="0" aria-label="Scrollable actor measurement comparison">
-                            <table class="compact-measurement-table <?= $compactScope === 'group' ? 'has-actor-column' : '' ?>">
+                            <table class="compact-measurement-table <?= $compactScope !== 'actor' ? 'has-actor-column' : '' ?>">
                                 <thead>
                                     <tr>
-                                        <?php if ($compactScope === 'group'): ?>
+                                        <?php if ($compactScope !== 'actor'): ?>
                                             <th scope="col" class="compact-actor-column">Actor</th>
                                         <?php endif; ?>
                                         <th scope="col" class="compact-session-column">Measurement date</th>
@@ -2828,7 +2866,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                                         $compactSessionIsCurrent = $compactSessionId !== null
                                             && $compactSessionId
                                             === (int) $selectedSession['measurement_session_id'];
-                                        $compactActorName = $compactScope === 'group'
+                                        $compactActorName = $compactScope !== 'actor'
                                             ? (string) $compactSession['actor_name']
                                             : (string) $selectedSession['actor_name'];
                                         $compactSessionLinkParameters = null;
@@ -2859,7 +2897,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                                         }
                                         ?>
                                         <tr data-csv-actor="<?= collectionStewardEscape($compactActorName) ?>" data-csv-date="<?= $compactSessionId === null ? '' : collectionStewardEscape(measurementFormattedDate($compactSession['measured_on'], $compactSession['date_precision'])) ?>" class="<?= $compactSessionIsCurrent ? 'is-current' : '' ?> <?= (int) $compactSession['flagged_value_count'] > 0 ? 'has-flagged-values' : '' ?>">
-                                            <?php if ($compactScope === 'group'): ?>
+                                            <?php if ($compactScope !== 'actor'): ?>
                                                 <th scope="row" class="compact-actor-column">
                                                     <span><?= collectionStewardEscape($compactSession['actor_name']) ?></span>
                                                     <?php if (!empty($compactSession['group_characters'])): ?>
@@ -2868,7 +2906,7 @@ $groupScopeLinkParameters['scope'] = 'group';
                                                 </th>
                                                 <td class="compact-session-column">
                                                     <?php if ($compactSessionId === null): ?>
-                                                        <span class="compact-no-session">No measurements recorded</span>
+                                                        <?php if ($compactScope !== 'none'): ?><span class="compact-no-session">No measurements recorded</span><?php endif; ?>
                                                     <?php else: ?>
                                                         <a href="/measurements.php?<?= collectionStewardEscape(http_build_query($compactSessionLinkParameters)) ?>">
                                                             <?= collectionStewardEscape(measurementFormattedDate($compactSession['measured_on'], $compactSession['date_precision'])) ?>
